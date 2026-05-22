@@ -75,6 +75,7 @@ function getDomainFields(center,reg,liveData){
   return [
     {id:'d1',label:'Licensing & Administration',dNum:'D1',color:D_COLORS[0],fields:[
       {id:'licenseNumber',label:'License number',value:v(lic.licenseNumber||seed._licenseNumber)},
+      {id:'licenseIssueDate',label:'License issue date',value:v(lic.licenseIssueDate)},
       {id:'licenseExpiry',label:'License expiry date',value:v(lic.licenseExpiry)},
       {id:'licCertOnFile',label:'License certificate on file',value:v(lic.licCertOnFile)},
       {id:'insurancePolicyNum',label:'GL insurance policy number',value:v(lic.insurancePolicyNum)},
@@ -452,7 +453,7 @@ function DocumentsTab({centerName}){
 
 function CenterProfileTab({centerName,centerCity,centerState,reg,liveData}){
   const lic=liveData?.licensing||{},per=liveData?.personnel||{},phy=liveData?.physical||{};
-  const rows=[['Director',per.directorName||'—'],['Licensed capacity',phy.capacity||'—'],['License number',lic.licenseNumber||'—'],['License expiry',lic.licenseExpiry||'—'],['Licensing agency',reg?.agency||'—'],['State',centerState],['City',centerCity],['Infant ratio max',`1:${reg?.infant||'?'}`],['Preschool ratio max',`1:${reg?.preschool||'?'}`],['Training requirement',`${reg?.trainingHrs||'?'} hrs/year`],['BG check type',reg?.rules?.bgCheckType||'—']];
+  const rows=[['Director',per.directorName||'—'],['Licensed capacity',phy.capacity||'—'],['License number',lic.licenseNumber||'—'],['License issue date',lic.licenseIssueDate||'—'],['License expiry',lic.licenseExpiry||'—'],['Licensing agency',reg?.agency||'—'],['State',centerState],['City',centerCity],['Infant ratio max',`1:${reg?.infant||'?'}`],['Preschool ratio max',`1:${reg?.preschool||'?'}`],['Training requirement',`${reg?.trainingHrs||'?'} hrs/year`],['BG check type',reg?.rules?.bgCheckType||'—']];
   return(<div style={{padding:'20px'}}>
     <div style={{marginBottom:16}}><div style={{fontSize:15,fontWeight:700,color:'var(--text)',marginBottom:2}}>{centerName}</div><div style={{fontSize:12,color:'var(--muted)'}}>Center Profile · {centerCity}, {centerState}</div></div>
     <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden'}}>
