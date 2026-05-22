@@ -569,7 +569,7 @@ function ExitConferenceScreen({domains,findings,photos,centerName,locationLabel,
 export default function InspectorView({activeTab='overview',userRole='inspector',centerId,center,reg:regProp,liveData:liveDataProp}){
   const [loginTime]=useState(Date.now());
   const [now,setNow]=useState(Date.now());
-  const [screen,setScreen]=useState('prep');
+  const [screen,setScreen]=useState('overview');
   const [inspType,setInspType]=useState('real');
   const [subset,setSubset]=useState(null);
   const [expanded,setExpanded]=useState({});
@@ -619,11 +619,224 @@ export default function InspectorView({activeTab='overview',userRole='inspector'
 
   if(userRole==='inspector'&&remaining<=0)return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',background:'var(--bg)'}}><div style={{textAlign:'center',background:'#fff',border:'1px solid var(--critical-border)',borderRadius:16,padding:'40px 48px',maxWidth:400}}><Icon name="lock" size={48} color="var(--red)" style={{margin:'0 auto 16px'}}/><h2 style={{fontSize:20,fontWeight:700,color:'var(--red)',marginBottom:8}}>Session Expired</h2><p style={{fontSize:14,color:'var(--muted)'}}>Your 8-hour inspection session has ended. Contact BUSoft to request a new access link.</p></div></div>);
 
+  // ── Sidebar tab routing — checked before screen state so sidebar always works ──
   if(activeTab==='staterules')   return <div className="content"><StateRulesTab center={centerForTabs} reg={reg} userRole="inspector"/></div>;
   if(activeTab==='insphistory')  return <InspectionHistoryTab centerName={centerName} centerState={centerState} reg={reg}/>;
   if(activeTab==='opencap')      return <OpenCAPTab centerName={centerName} findings={findings}/>;
   if(activeTab==='documents')    return <DocumentsTab centerName={centerName}/>;
   if(activeTab==='centerprofile')return <CenterProfileTab centerName={centerName} centerCity={centerCity} centerState={centerState} reg={reg} liveData={liveData}/>;
+  // Overview tab always navigates back to overview screen regardless of where inspector was
+  if(activeTab==='overview'&&screen!=='overview') { setScreen('overview'); }
+
+  // ── Screen routing ───────────────────────────────────────────────────────────
+  if(screen==='overview') {
+    // Count domain completion for the rings
+    const domainStats = domains.map(d => {
+      const fields = d.fields;
+      const tagged = fields.filter(f=>!!findings[f.id]?.status).length;
+      const nc  = fields.filter(f=>findings[f.id]?.status==='noncompliant').length;
+      const ar  = fields.filter(f=>findings[f.id]?.status==='atrisk').length;
+      const co  = fields.filter(f=>findings[f.id]?.status==='corrected').length;
+      const cmp = fields.filter(f=>findings[f.id]?.status==='compliant').length;
+      return { ...d, tagged, nc, ar, co, cmp, total: fields.length };
+    });
+    const totalTagged = domainStats.reduce((s,d)=>s+d.tagged,0);
+    const totalFields = domainStats.reduce((s,d)=>s+d.total,0);
+    const totalNC = domainStats.reduce((s,d)=>s+d.nc,0);
+    const totalAR = domainStats.reduce((s,d)=>s+d.ar,0);
+    const inspInProgress = totalTagged > 0;
+    const openCAP = Object.entries(findings).filter(([,f])=>f.status==='noncompliant'||f.status==='atrisk');
+
+    // Doc expiry checks from liveData
+    const today = new Date();
+    const daysUntil = d => d ? Math.round((new Date(d)-today)/86400000) : null;
+    const docChecks = [
+      { label:'Operating License',   date: liveData?.licensing?.licenseExpiry,   domain:'D1' },
+      { label:'GL Insurance',        date: liveData?.licensing?.insuranceExpiry,  domain:'D1' },
+      { label:"Workers' Comp",       date: liveData?.licensing?.workersCompExpiry,domain:'D1' },
+      { label:'CPR Certification',   date: liveData?.staffHealth?.cprExpiryDate,  domain:'D5' },
+    ].map(d=>({...d, days:daysUntil(d.date)})).filter(d=>d.days!==null&&d.days<60);
+
+    return(
+      <div style={{display:'flex',flexDirection:'column',height:'100%',overflowY:'auto',background:'var(--bg)'}}>
+        {/* Hero */}
+        <div style={{background:'var(--navy)',padding:'20px 22px',flexShrink:0}}>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--teal2)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:4}}>
+                {isReadOnly?'Inspector View':'Inspection Overview'}
+              </div>
+              <div style={{fontSize:19,fontWeight:800,color:'#fff',marginBottom:2}}>{centerName}</div>
+              <div style={{fontSize:12,color:'#94a3b8'}}>{locationLabel} · {reg?.agency||'State Licensing Agency'}</div>
+            </div>
+            {/* Session timer in hero */}
+            {userRole==='inspector'&&(
+              <div style={{background:timerUrgent?'rgba(185,28,28,0.3)':'rgba(255,255,255,0.08)',border:`1px solid ${timerUrgent?'#e8a0a0':'rgba(255,255,255,0.15)'}`,borderRadius:10,padding:'10px 16px',textAlign:'center'}}>
+                <div style={{fontSize:10,fontWeight:700,color:timerUrgent?'#fca5a5':'#94a3b8',textTransform:'uppercase',letterSpacing:'0.05em',display:'flex',alignItems:'center',gap:5,justifyContent:'center'}}><Icon name="clock" size={11} color={timerUrgent?'#fca5a5':'#94a3b8'}/>Session remaining</div>
+                <div style={{fontSize:22,fontWeight:800,color:timerUrgent?'#fca5a5':'#e2e8f0',lineHeight:1.2,marginTop:2}}>{hh}h {mm}m</div>
+              </div>
+            )}
+          </div>
+
+          {/* Inspection status bar */}
+          <div style={{marginTop:14,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+            {inspInProgress?(
+              <>
+                <span style={{fontSize:11,fontWeight:700,color:'var(--teal2)',display:'flex',alignItems:'center',gap:5}}><Icon name="check" size={12} color="var(--teal2)"/>Inspection in progress</span>
+                <div style={{flex:1,height:5,background:'rgba(255,255,255,0.1)',borderRadius:3,minWidth:80,overflow:'hidden'}}>
+                  <div style={{height:'100%',width:`${Math.round((totalTagged/totalFields)*100)}%`,background:'var(--teal)',borderRadius:3,transition:'width 0.4s'}}/>
+                </div>
+                <span style={{fontSize:11,color:'#94a3b8',whiteSpace:'nowrap'}}>{totalTagged}/{totalFields} fields tagged</span>
+                {totalNC>0&&<span style={{fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,background:'rgba(185,28,28,0.25)',color:'#fca5a5',border:'1px solid rgba(185,28,28,0.4)'}}>{totalNC} Non-Compliant</span>}
+                {totalAR>0&&<span style={{fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,background:'rgba(217,119,6,0.25)',color:'#fbbf24',border:'1px solid rgba(217,119,6,0.4)'}}>{totalAR} At Risk</span>}
+              </>
+            ):(
+              <span style={{fontSize:12,color:'#64748b'}}>No inspection started yet — click Begin Inspection to start</span>
+            )}
+          </div>
+        </div>
+
+        <div style={{padding:'16px 20px',display:'flex',flexDirection:'column',gap:14}}>
+
+          {/* Action buttons */}
+          <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+            {!isReadOnly&&(
+              <button onClick={()=>setScreen('prep')} style={{padding:'10px 20px',background:'var(--teal)',color:'#fff',border:'none',borderRadius:9,fontSize:13,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:7,transition:'background 0.15s'}} onMouseEnter={e=>e.currentTarget.style.background='var(--teal2)'} onMouseLeave={e=>e.currentTarget.style.background='var(--teal)'}>
+                <Icon name="arrow" size={14} color="#fff"/>
+                {inspInProgress?'Continue Inspection':'Begin Inspection'}
+              </button>
+            )}
+            {inspInProgress&&!isReadOnly&&(
+              <button onClick={()=>setScreen('inspection')} style={{padding:'10px 16px',background:'rgba(0,169,157,0.08)',color:'var(--teal)',border:'1px solid var(--teal)',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:7}}>
+                <Icon name="edit" size={14} color="var(--teal)"/>Resume Findings
+              </button>
+            )}
+            {inspInProgress&&!isReadOnly&&(
+              <button onClick={()=>{handleSave();setScreen('exit');}} style={{padding:'10px 16px',background:'transparent',color:'var(--muted)',border:'1px solid var(--border)',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:7}}>
+                <Icon name="clipboard" size={14}/>Exit Conference
+              </button>
+            )}
+          </div>
+
+          {/* Domain completion grid */}
+          <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,padding:'15px 17px'}}>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:13}}>Domain Coverage</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:10}}>
+              {domainStats.map(d=>{
+                const accent=d.nc>0?'var(--red)':d.ar>0?'var(--amber)':d.tagged===d.total&&d.total>0?'var(--green)':d.tagged>0?d.color:'#cbd5e1';
+                return(
+                  <div key={d.id} onClick={()=>{if(!isReadOnly){setScreen('inspection');setExpanded(p=>({...p,[d.id]:true}));}}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',border:`1px solid ${accent}30`,borderLeft:`3px solid ${accent}`,borderRadius:9,background:d.nc>0?'var(--critical-bg)':d.ar>0?'var(--atrisk-bg)':'#fafafa',cursor:isReadOnly?'default':'pointer'}}>
+                    <ProgressRing tagged={d.tagged} total={d.total} color={d.color} size={34}/>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontSize:10,fontWeight:800,color:d.color,marginBottom:1}}>{d.dNum}</div>
+                      <div style={{fontSize:11,fontWeight:600,color:'var(--text)',lineHeight:1.2}}>{d.label.split(' ')[0]}</div>
+                      {d.nc>0&&<div style={{fontSize:10,color:'var(--critical-text)',marginTop:2}}>{d.nc} NC</div>}
+                      {d.ar>0&&!d.nc&&<div style={{fontSize:10,color:'var(--atrisk-text)',marginTop:2}}>{d.ar} at risk</div>}
+                      {d.nc===0&&d.ar===0&&d.tagged>0&&<div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>{d.tagged}/{d.total}</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}} className="insp-prep-grid">
+            {/* Open corrections */}
+            <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,padding:'15px 17px'}}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:11,display:'flex',alignItems:'center',gap:7}}><Icon name="clipboard" size={13} color="var(--muted)"/>Open Corrections</div>
+              {openCAP.length===0?(
+                <div style={{fontSize:13,color:'var(--muted)',display:'flex',alignItems:'center',gap:6}}><Icon name="check" size={14} color="var(--compliant-dot)"/>No open items</div>
+              ):(
+                <>
+                  <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                    {openCAP.slice(0,4).map(([id,f])=>{const cfg=STATUS_MAP[f.status];return(
+                      <div key={id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,padding:'7px 10px',background:cfg.bg,border:`1px solid ${cfg.bd}`,borderRadius:7}}>
+                        <div style={{fontSize:12,color:'var(--text)',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{id.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase())}</div>
+                        <StatusPill statusId={f.status} small/>
+                      </div>
+                    );})}
+                  </div>
+                  {openCAP.length>4&&<div style={{fontSize:11,color:'var(--muted)',marginTop:6,textAlign:'right'}}>{openCAP.length-4} more — see Open Corrections tab</div>}
+                </>
+              )}
+            </div>
+
+            {/* Document expiry watch */}
+            <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,padding:'15px 17px'}}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:11,display:'flex',alignItems:'center',gap:7}}><Icon name="clock" size={13} color="var(--muted)"/>Expiring Soon</div>
+              {docChecks.length===0?(
+                <div style={{fontSize:13,color:'var(--muted)',display:'flex',alignItems:'center',gap:6}}><Icon name="check" size={14} color="var(--compliant-dot)"/>No documents expiring within 60 days</div>
+              ):(
+                <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                  {docChecks.map((d,i)=>{
+                    const urgent=d.days<0,warn=d.days<30;
+                    return(
+                      <div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,padding:'7px 10px',background:urgent?'var(--critical-bg)':warn?'var(--atrisk-bg)':'#f8fafc',border:`1px solid ${urgent?'var(--critical-border)':warn?'var(--atrisk-border)':'var(--border)'}`,borderRadius:7}}>
+                        <div style={{fontSize:12,color:'var(--text)',fontWeight:500}}>{d.label}</div>
+                        <div style={{fontSize:11,fontWeight:700,color:urgent?'var(--critical-text)':warn?'var(--atrisk-text)':'var(--muted)',whiteSpace:'nowrap'}}>
+                          {urgent?`${Math.abs(d.days)}d overdue`:d.days===0?'Today':`${d.days}d`}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Past inspection history */}
+          <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,padding:'15px 17px'}}>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:11,display:'flex',alignItems:'center',gap:7}}><Icon name="history" size={13} color="var(--muted)"/>Past Inspection Results</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {[
+                {date:'2024-09-14',type:'Real Inspection',result:'Passed',violations:3,inspector:'Jane Morrow'},
+                {date:'2024-04-02',type:'Real Inspection',result:'Passed',violations:5,inspector:'Jane Morrow'},
+                {date:'2023-09-20',type:'Real Inspection',result:'Passed with conditions',violations:8,inspector:'Thomas Reed'},
+              ].map((h,i)=>{
+                const ok=h.result==='Passed';
+                return(
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'9px 12px',background:'#fafafa',border:'1px solid #f1f5f9',borderRadius:8,flexWrap:'wrap'}}>
+                    <div style={{display:'flex',flexDirection:'column',flex:1,minWidth:120}}>
+                      <div style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>{new Date(h.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
+                      <div style={{fontSize:11,color:'var(--muted)'}}>{h.type} · {h.inspector}</div>
+                    </div>
+                    <span style={{fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,background:ok?'var(--compliant-bg)':h.violations>5?'var(--critical-bg)':'var(--atrisk-bg)',color:ok?'var(--compliant-text)':h.violations>5?'var(--critical-text)':'var(--atrisk-text)',border:`1px solid ${ok?'var(--compliant-border)':h.violations>5?'var(--critical-border)':'var(--atrisk-border)'}`}}>{h.result}</span>
+                    <div style={{fontSize:12,color:'var(--muted)',whiteSpace:'nowrap'}}><strong style={{color:'var(--text)'}}>{h.violations}</strong> violations</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{marginTop:10,padding:'9px 12px',background:'var(--atrisk-bg)',border:'1px solid var(--atrisk-border)',borderRadius:8,fontSize:11,color:'var(--atrisk-text)',display:'flex',alignItems:'center',gap:7}}><Icon name="info" size={12} color="var(--atrisk-text)"/>Mock data — real history loads once Praveen's scraping integration is complete.</div>
+          </div>
+
+          {/* State requirements snapshot */}
+          <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,padding:'15px 17px'}}>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:11,display:'flex',alignItems:'center',gap:7}}><Icon name="map" size={13} color="var(--muted)"/>State Requirements — {centerState}</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:8}}>
+              {[
+                ['Infant ratio',`1:${reg?.infant||'?'}`],
+                ['Toddler ratio',`1:${reg?.toddler||'?'}`],
+                ['Preschool ratio',`1:${reg?.preschool||'?'}`],
+                ['School-age ratio',`1:${reg?.schoolAge||'?'}`],
+                ['Indoor sq ft/child',`${reg?.indoorSqft||'?'} sq ft`],
+                ['Outdoor sq ft/child',`${reg?.outdoorSqft||'?'} sq ft`],
+                ['Training hours/yr',`${reg?.trainingHrs||'?'} hrs`],
+                ['Hot water max',`${reg?.rules?.hotWaterMax||110}°F`],
+                ['BG check type',reg?.rules?.bgCheckType||'State + FBI'],
+                ['Director requirement',reg?.directorReq||'—'],
+              ].map(([l,v])=>(
+                <div key={l} style={{display:'flex',flexDirection:'column',gap:2,padding:'9px 11px',background:'#f8fafc',borderRadius:7,border:'1px solid #f1f5f9'}}>
+                  <span style={{fontSize:10.5,color:'var(--muted)'}}>{l}</span>
+                  <span style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
 
   if(!isReadOnly&&screen==='prep')return(<div style={{display:'flex',flexDirection:'column',height:'100%',overflowY:'auto',background:'var(--bg)'}}><PrepScreen centerName={centerName} locationLabel={locationLabel} reg={reg} lastFindings={findings} domains={domains} resolvedId={resolvedId} userRole={userRole} onStart={(type,notes,sub)=>{setInspType(type);setSubset(sub||null);setScreen('inspection');}}/></div>);
 
