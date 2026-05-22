@@ -619,14 +619,17 @@ export default function InspectorView({activeTab='overview',userRole='inspector'
 
   if(userRole==='inspector'&&remaining<=0)return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',background:'var(--bg)'}}><div style={{textAlign:'center',background:'#fff',border:'1px solid var(--critical-border)',borderRadius:16,padding:'40px 48px',maxWidth:400}}><Icon name="lock" size={48} color="var(--red)" style={{margin:'0 auto 16px'}}/><h2 style={{fontSize:20,fontWeight:700,color:'var(--red)',marginBottom:8}}>Session Expired</h2><p style={{fontSize:14,color:'var(--muted)'}}>Your 8-hour inspection session has ended. Contact BUSoft to request a new access link.</p></div></div>);
 
+  // ── When sidebar Overview tab is clicked, reset screen to overview ──────────
+  useEffect(() => {
+    if (activeTab === 'overview') setScreen('overview');
+  }, [activeTab]);
+
   // ── Sidebar tab routing — checked before screen state so sidebar always works ──
   if(activeTab==='staterules')   return <div className="content"><StateRulesTab center={centerForTabs} reg={reg} userRole="inspector"/></div>;
   if(activeTab==='insphistory')  return <InspectionHistoryTab centerName={centerName} centerState={centerState} reg={reg}/>;
   if(activeTab==='opencap')      return <OpenCAPTab centerName={centerName} findings={findings}/>;
   if(activeTab==='documents')    return <DocumentsTab centerName={centerName}/>;
   if(activeTab==='centerprofile')return <CenterProfileTab centerName={centerName} centerCity={centerCity} centerState={centerState} reg={reg} liveData={liveData}/>;
-  // Overview tab always navigates back to overview screen regardless of where inspector was
-  if(activeTab==='overview'&&screen!=='overview') { setScreen('overview'); }
 
   // ── Screen routing ───────────────────────────────────────────────────────────
   if(screen==='overview') {
@@ -806,7 +809,7 @@ export default function InspectorView({activeTab='overview',userRole='inspector'
                 );
               })}
             </div>
-            <div style={{marginTop:10,padding:'9px 12px',background:'var(--atrisk-bg)',border:'1px solid var(--atrisk-border)',borderRadius:8,fontSize:11,color:'var(--atrisk-text)',display:'flex',alignItems:'center',gap:7}}><Icon name="info" size={12} color="var(--atrisk-text)"/>Mock data — real history loads once Praveen's scraping integration is complete.</div>
+            <div style={{marginTop:10,padding:'9px 12px',background:'var(--atrisk-bg)',border:'1px solid var(--atrisk-border)',borderRadius:8,fontSize:11,color:'var(--atrisk-text)',display:'flex',alignItems:'center',gap:7}}><Icon name="info" size={12} color="var(--atrisk-text)"/>Mock data — real inspection history will populate once the state licensing data integration is complete.</div>
           </div>
 
           {/* State requirements snapshot */}
@@ -814,20 +817,20 @@ export default function InspectorView({activeTab='overview',userRole='inspector'
             <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:11,display:'flex',alignItems:'center',gap:7}}><Icon name="map" size={13} color="var(--muted)"/>State Requirements — {centerState}</div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:8}}>
               {[
-                ['Infant ratio',`1:${reg?.infant||'?'}`],
-                ['Toddler ratio',`1:${reg?.toddler||'?'}`],
-                ['Preschool ratio',`1:${reg?.preschool||'?'}`],
-                ['School-age ratio',`1:${reg?.schoolAge||'?'}`],
-                ['Indoor sq ft/child',`${reg?.indoorSqft||'?'} sq ft`],
-                ['Outdoor sq ft/child',`${reg?.outdoorSqft||'?'} sq ft`],
-                ['Training hours/yr',`${reg?.trainingHrs||'?'} hrs`],
-                ['Hot water max',`${reg?.rules?.hotWaterMax||110}°F`],
-                ['BG check type',reg?.rules?.bgCheckType||'State + FBI'],
-                ['Director requirement',reg?.directorReq||'—'],
+                ['Infant ratio',      reg?.rules?.infantRatio    || `1:${reg?.infant||'?'}`],
+                ['Toddler ratio',     reg?.rules?.toddlerRatio   || `1:${reg?.toddler||'?'}`],
+                ['Preschool ratio',   reg?.rules?.preschoolRatio || `1:${reg?.preschool||'?'}`],
+                ['School-age ratio',  reg?.rules?.schoolAgeRatio || `1:${reg?.schoolAge||'?'}`],
+                ['Indoor sq ft/child',reg?.rules?.indoorSqft     ? `${reg.rules.indoorSqft} sq ft` : reg?.indoorSqft ? `${reg.indoorSqft} sq ft` : '—'],
+                ['Outdoor sq ft/child',reg?.rules?.outdoorSqft   ? `${reg.rules.outdoorSqft} sq ft` : reg?.outdoorSqft ? `${reg.outdoorSqft} sq ft` : '—'],
+                ['Training hours/yr', reg?.rules?.trainingHours  ? `${reg.rules.trainingHours} hrs` : reg?.trainingHrs ? `${reg.trainingHrs} hrs` : '—'],
+                ['Hot water max',     reg?.rules?.hotWaterMax    ? `${reg.rules.hotWaterMax}°F` : '110°F'],
+                ['BG check type',     reg?.rules?.bgCheck        || reg?.rules?.bgCheckType || '—'],
+                ['Director requirement', reg?.directorReq        || '—'],
               ].map(([l,v])=>(
                 <div key={l} style={{display:'flex',flexDirection:'column',gap:2,padding:'9px 11px',background:'#f8fafc',borderRadius:7,border:'1px solid #f1f5f9'}}>
                   <span style={{fontSize:10.5,color:'var(--muted)'}}>{l}</span>
-                  <span style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>{v}</span>
+                  <span style={{fontSize:13,fontWeight:700,color:v==='—'||v===''?'var(--muted)':'var(--text)'}}>{v||'—'}</span>
                 </div>
               ))}
             </div>
