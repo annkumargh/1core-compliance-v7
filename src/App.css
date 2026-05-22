@@ -742,3 +742,12 @@ body { font-size: 14px; }
   /* Inspection card compact */
   .insp-date { font-size: 16px; }
 }
+
+/* ─── Inspector View — responsive table/card toggle ──────────────────────────── */
+.inspector-table-wrap { display: block; }
+.inspector-cards-wrap { display: none; }
+
+@media (max-width: 767px) {
+  .inspector-table-wrap { display: none; }
+  .inspector-cards-wrap { display: block; }
+}
