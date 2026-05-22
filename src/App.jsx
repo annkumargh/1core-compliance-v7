@@ -317,11 +317,12 @@ const NAV = {
     {id:'help',    label:'Help & Glossary',  icon:'help',    group:''            },
   ],
   inspector: [
-    {id:'overview',   label:'Center Overview', icon:'eye',    group:'INSPECTION'},
-    {id:'ratios',     label:'Staff Ratios',    icon:'ratios', group:''          },
-    {id:'staff',      label:'Staff Status',    icon:'users',  group:''          },
-    {id:'alerts',     label:'Alerts',          icon:'bell',   group:''          },
-    {id:'staterules', label:'State Rules',     icon:'map',    group:''          },
+    {id:'overview',    label:'Center Overview',     icon:'eye',       group:'INSPECTION'},
+    {id:'staterules',  label:'State Rules',         icon:'map',       group:''          },
+    {id:'insphistory', label:'Inspection History',  icon:'history',   group:'RECORDS'   },
+    {id:'opencap',     label:'Open Corrections',    icon:'clipboard', group:''          },
+    {id:'documents',   label:'Documents',           icon:'folder',    group:''          },
+    {id:'centerprofile',label:'Center Profile',     icon:'building',  group:''          },
   ],
 };
 
@@ -345,6 +346,8 @@ function NavIcon({type,size=15}) {
     eye:      <svg {...s} viewBox="0 0 24 24" {...p}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
     home:     <svg {...s} viewBox="0 0 24 24" {...p}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
     help:     <svg {...s} viewBox="0 0 24 24" {...p}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+    folder:   <svg {...s} viewBox="0 0 24 24" {...p}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>,
+    building: <svg {...s} viewBox="0 0 24 24" {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>,
   };
   return icons[type]||null;
 }
