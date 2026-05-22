@@ -379,6 +379,9 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="License number" required chip={`${state}`} fieldKey="licenseNumber">
               <input placeholder="e.g. TX-123456789" value={liveData.licenseNumber || ''} onChange={e => set('licenseNumber', e.target.value)} />
             </Field>
+            <Field label="License issue date" fieldKey="licenseIssueDate">
+              <input type="date" value={liveData.licenseIssueDate || ''} onChange={e => set('licenseIssueDate', e.target.value)} />
+            </Field>
             <Field label="License class / type" fieldKey="licenseClass">
               <select value={liveData.licenseClass || ''} onChange={e => set('licenseClass', e.target.value)}>
                 <option value="">Select...</option>
