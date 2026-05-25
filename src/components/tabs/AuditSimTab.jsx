@@ -502,7 +502,14 @@ export default function AuditSimTab({center,reg,liveData}) {
       quarter: cq,
       selected,
       pass, fail, notEntered, total, readinessScore,
-      capId: `CAP-${Date.now()}`,
+      capId: (() => {
+        const y = now.getFullYear();
+        const tc = selectedTypeId==='system'?'SYS':selectedTypeId==='center'?'DIR':'REAL';
+        const period = selectedTypeId==='system'&&cq ? cq : String(now.getMonth()+1).padStart(2,'0');
+        const existing = (getSavedRuns(center.id)||[]).filter(r=>r.capId&&r.capId.startsWith(`CAP-${tc}-${y}-${period}-`));
+        const seq = String(existing.length+1).padStart(3,'0');
+        return `CAP-${tc}-${y}-${period}-${seq}`;
+      })(),
     };
 
     setResults(runData);
