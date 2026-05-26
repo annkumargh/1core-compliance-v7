@@ -398,11 +398,11 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
     Object.entries(regFields).forEach(([key, val]) => {
       if (val !== undefined && val !== '' && val !== (ld[key] || '')) updateData(key, val);
     });
-  }, [reg, rules, liveData.licensedCapacity, liveData.indoorSqFtTotal, liveData.outdoorSqFtTotal, // eslint-disable-line react-hooks/exhaustive-deps
+  }, [reg, rules, liveData.licensedCapacity, liveData.indoorSqFtTotal, liveData.outdoorSqFtTotal,
       liveData.hotWaterTemp, liveData.toiletCount, liveData.totalEnrollment,
       liveData.infantEnrollment, liveData.infantStaffCount, liveData.olderToddlerEnrollment,
       liveData.toddlerStaffCount, liveData.preschoolEnrollment, liveData.preschoolStaffCount,
-      liveData.schoolAgeEnrollment, liveData.schoolAgeStaffCount, liveData.minStaffOnDuty]);
+      liveData.schoolAgeEnrollment, liveData.schoolAgeStaffCount, liveData.minStaffOnDuty]); // eslint-disable-line
 
   // All 287 fields stored flat under canonical dataKey — updateData(key, value)
   const set = (key, val) => updateData(key, val);
