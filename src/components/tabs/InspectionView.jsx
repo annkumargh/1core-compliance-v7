@@ -325,7 +325,7 @@ function DomainSection({ domain, score, isExpanded, isNR, onToggle, onToggleNR, 
 }
 
 // ── Main component ────────────────────────────────────────────────────────
-export default function InspectionView({ center, reg, initialDomain }) {
+export default function InspectionView({ center, reg, initialDomain, liveData: liveDataProp }) {
   const [expanded,    setExpanded]    = useState(() => {
     // Auto-expand the domain passed from Overview tile click
     if (initialDomain) return { [`d${initialDomain}`]: true };
@@ -335,7 +335,7 @@ export default function InspectionView({ center, reg, initialDomain }) {
   const [showReport,  setShowReport]  = useState(false);
 
   const domainRefs = useRef({});
-  const liveDataRef = center.liveData || {};
+  const liveDataRef = liveDataProp || center.liveData || {};
   const domains    = getDomainFields(center, reg, liveDataRef);
   const scores     = center.scores || {};
 

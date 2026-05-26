@@ -107,7 +107,7 @@ export default function CenterDirectorView({
         {activeTab==='alerts'     && <AlertsTab      center={center}/>}
         {activeTab==='ratios'     && <RatiosTab      center={center}/>}
         {activeTab==='staff'      && <StaffTab       center={center} pendingUpdates={pendingStaffUpdates} onApproveUpdate={onApproveStaffUpdate} onRejectUpdate={onRejectStaffUpdate}/>}
-        {activeTab==='inspection' && <InspectionView center={centerWithSeed} reg={reg}/>}
+        {activeTab==='inspection' && <InspectionView center={centerWithSeed} reg={reg} liveData={liveData.data || liveData || {}}/>}
         {activeTab==='cap'        && <CorrectiveActionPlanTab center={center} reg={reg} liveData={liveData}/>}
         {activeTab==='auditsim'   && <AuditSimTab    center={center} reg={reg} liveData={liveData}/>}
         {activeTab==='staterules' && <StateRulesTab  center={center} reg={reg} userRole={userRole}/>}

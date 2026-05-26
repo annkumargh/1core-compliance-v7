@@ -90,24 +90,336 @@ function saveRun(centerId, run) {
   } catch {}
 }
 
-// ── Build compliance checks ───────────────────────────────────────────────────
-function buildAllChecks(center, reg, liveData) {
+// ── Build compliance checks — all 287 fields from flat liveData ───────────────
+function buildAllChecks(center, reg, ld) {
   const rules = reg?.rules || {};
-  const lic   = liveData.licensing          || {};
-  const phy   = liveData.physical           || {};
-  const per   = liveData.personnel          || {};
-  const cr    = liveData.staffCredentials   || {};
-  const h     = liveData.staffHealth        || {};
-  const ch    = liveData.children           || {};
-  const em    = liveData.emergency          || {};
-  const rat   = liveData.ratios             || {};
   const today = new Date();
 
+  // Helpers
   const yn    = v => !v || v==='' ? 'not_entered' : v==='Yes' ? 'pass' : 'fail';
   const ynNA  = v => !v || v==='' ? 'not_entered' : (v==='Yes'||v==='Not applicable'||v==='N/A') ? 'pass' : 'fail';
-  const future= (ds,min=0) => !ds ? 'not_entered' : (new Date(ds)-today)/86400000>min ? 'pass' : 'fail';
-  const age   = (ds,max)   => !ds ? 'not_entered' : (today-new Date(ds))/86400000<=max ? 'pass' : 'fail';
+  const future= ds => !ds ? 'not_entered' : (new Date(ds)-today)/86400000>0 ? 'pass' : 'fail';
+  const age   = (ds,max) => !ds ? 'not_entered' : (today-new Date(ds))/86400000<=max ? 'pass' : 'fail';
   const has   = v => !v || v==='' ? 'not_entered' : 'pass';
+  const num   = (v,min) => !v ? 'not_entered' : parseFloat(v)>=min ? 'pass' : 'fail';
+  const sqft  = (total,cap,min) => {
+    const t=parseFloat(total),c=parseFloat(cap);
+    if(!t||!c) return 'not_entered';
+    return t/c>=min ? 'pass' : 'fail';
+  };
+  const ratio = (enroll,staff,max) => {
+    const e=parseFloat(enroll),s=parseFloat(staff);
+    if(!e) return 'pass'; // no enrollment = compliant
+    if(!s) return 'not_entered';
+    return e/s<=max ? 'pass' : 'fail';
+  };
+
+  return {
+    d1:[
+      // D1-001 to D1-024 — editable fields
+      {fieldNum:'D1-001',label:'License number on file',                   critical:true,  result:has(ld.licenseNumber)},
+      {fieldNum:'D1-002',label:'License class / type',                     critical:false, result:has(ld.licenseClass)},
+      {fieldNum:'D1-003',label:'License issue date',                       critical:false, result:has(ld.licenseIssueDate)},
+      {fieldNum:'D1-004',label:'License certificate on file',              critical:true,  result:yn(ld.licenseCertOnFile)},
+      {fieldNum:'D1-005',label:'License renewal date',                     critical:false, result:has(ld.licenseRenewalDate)},
+      {fieldNum:'D1-006',label:'Licensed capacity (max children)',          critical:true,  result:has(ld.licensedCapacity)},
+      {fieldNum:'D1-007',label:'Facility / permit number',                 critical:false, result:has(ld.facilityNumber)},
+      {fieldNum:'D1-008',label:'GL insurance carrier name',               critical:false, result:has(ld.glInsuranceProvider)},
+      {fieldNum:'D1-009',label:'Required notices posted visibly',          critical:false, result:yn(ld.postedNotices)},
+      {fieldNum:'D1-010',label:'GL policy number',                         critical:false, result:has(ld.glPolicyNumber)},
+      {fieldNum:'D1-011',label:'GL coverage amount',                       critical:false, result:has(ld.glCoverageAmount)},
+      {fieldNum:'D1-012',label:'GL coverage expiry',                       critical:true,  result:future(ld.glExpiry)},
+      {fieldNum:'D1-013',label:"Workers' comp expiry",                     critical:false, result:future(ld.workersCompExpiry)},
+      {fieldNum:'D1-014',label:"Workers' comp current",                    critical:true,  result:yn(ld.workersCompCurrent)},
+      {fieldNum:'D1-015',label:'Certificate of Insurance (COI) current',   critical:true,  result:ynNA(ld.coiOnFile)},
+      {fieldNum:'D1-016',label:'Property insurance on file',               critical:false, result:ynNA(ld.propertyInsurance)},
+      {fieldNum:'D1-017',label:'Last licensing inspection date',           critical:false, result:has(ld.lastInspectionDate)},
+      {fieldNum:'D1-018',label:'Last inspection result',                   critical:true,  result:has(ld.lastInspectionResult)},
+      {fieldNum:'D1-019',label:'Open violations count',                    critical:false, result:ld.openViolationsCount==='' || ld.openViolationsCount===undefined ? 'not_entered' : parseFloat(ld.openViolationsCount)===0 ? 'pass' : 'fail'},
+      {fieldNum:'D1-020',label:'Previous inspection date',                 critical:false, result:has(ld.prevInspectionDate)},
+      {fieldNum:'D1-021',label:'Complaint inspections (12 mo)',            critical:false, result:has(ld.complaintInspections)},
+      {fieldNum:'D1-022',label:'Licensing inspection report on file',      critical:true,  result:yn(ld.inspectionReportOnFile)},
+      {fieldNum:'D1-023',label:'QRIS enrolled',                            critical:false, result:ynNA(ld.qrisEnrolled)},
+      {fieldNum:'D1-024',label:'QRIS current rating / level',              critical:false, result:has(ld.qrisRating)},
+      // D1-025 to D1-034 — reg-sourced (always stored via DataEntryTab useEffect)
+      {fieldNum:'D1-025',label:'Licensing agency name',                    critical:false, result:has(ld.licensingAgency)},
+      {fieldNum:'D1-026',label:'Agency phone number',                      critical:false, result:has(ld.agencyPhone)},
+      {fieldNum:'D1-027',label:'Agency website',                           critical:false, result:has(ld.agencyWebsite)},
+      {fieldNum:'D1-028',label:'Regulatory citation',                      critical:false, result:has(ld.regulatoryCitation)},
+      {fieldNum:'D1-029',label:'Enabling statute',                         critical:false, result:has(ld.enablingStatute)},
+      {fieldNum:'D1-030',label:'State regulation last validated',          critical:false, result:has(ld.regLastValidated)},
+      {fieldNum:'D1-031',label:'QRIS name',                               critical:false, result:has(ld.qrisName)},
+      {fieldNum:'D1-032',label:'QRIS participation type',                  critical:false, result:has(ld.qrisType)},
+      {fieldNum:'D1-033',label:'Insurance required (state)',               critical:false, result:has(ld.insuranceRequired)},
+      {fieldNum:'D1-034',label:'Inspections per year (state min)',         critical:false, result:has(ld.inspPerYearMin)},
+      {fieldNum:'D1-035',label:'QRIS expiry / renewal date',              critical:false, result:future(ld.qrisRenewalDate)},
+    ],
+    d2:[
+      {fieldNum:'D2-001',label:'Total indoor sq ft',                       critical:true,  result:sqft(ld.indoorSqFtTotal,ld.licensedCapacity,reg.indoorSqft||35)},
+      {fieldNum:'D2-002',label:'Indoor sq ft per child (calc)',            critical:false, result:has(ld.indoorSqFtPerChild)},
+      {fieldNum:'D2-003',label:'State indoor minimum (sq ft)',             critical:false, result:has(ld.stateIndoorMin)},
+      {fieldNum:'D2-004',label:'Indoor space compliant',                   critical:true,  result:ld.indoorSpaceCompliant==='Yes'?'pass':ld.indoorSpaceCompliant==='No'?'fail':'not_entered'},
+      {fieldNum:'D2-005',label:'Total outdoor sq ft',                      critical:true,  result:sqft(ld.outdoorSqFtTotal,ld.licensedCapacity,reg.outdoorSqft||75)},
+      {fieldNum:'D2-006',label:'Outdoor sq ft per child (calc)',           critical:false, result:has(ld.outdoorSqFtPerChild)},
+      {fieldNum:'D2-007',label:'State outdoor minimum (sq ft)',            critical:false, result:has(ld.stateOutdoorMin)},
+      {fieldNum:'D2-008',label:'Outdoor space compliant',                  critical:true,  result:ld.outdoorSpaceCompliant==='Yes'?'pass':ld.outdoorSpaceCompliant==='No'?'fail':'not_entered'},
+      {fieldNum:'D2-009',label:'Room capacity sign posted',                critical:false, result:yn(ld.roomCapacityPosted)},
+      {fieldNum:'D2-010',label:'Floor plan on file',                       critical:false, result:yn(ld.floorPlanOnFile)},
+      {fieldNum:'D2-011',label:'Hot water temperature',                    critical:true,  result:!ld.hotWaterTemp?'not_entered':parseFloat(ld.hotWaterTemp)<=(parseInt(rules.hotWaterMax)||110)?'pass':'fail'},
+      {fieldNum:'D2-012',label:'Hot water max (state)',                    critical:false, result:has(ld.stateHotWaterMax)},
+      {fieldNum:'D2-013',label:'Hot water compliant',                      critical:true,  result:ld.hotWaterCompliant==='Yes'?'pass':ld.hotWaterCompliant==='No'?'fail':'not_entered'},
+      {fieldNum:'D2-014',label:'Child-accessible toilets (count)',         critical:false, result:has(ld.toiletCount)},
+      {fieldNum:'D2-015',label:'Toilet ratio (calc)',                      critical:false, result:has(ld.toiletRatioCalc)},
+      {fieldNum:'D2-016',label:'State toilet ratio minimum',               critical:false, result:has(ld.stateToiletRatio)},
+      {fieldNum:'D2-017',label:'Hand-washing sinks (count)',               critical:false, result:has(ld.sinkCount)},
+      {fieldNum:'D2-018',label:'Safe drinking water accessible',           critical:true,  result:yn(ld.drinkingWater)},
+      {fieldNum:'D2-019',label:'Hazardous materials stored safely',        critical:true,  result:yn(ld.hazMatStorage)},
+      {fieldNum:'D2-020',label:'Choke hazard policy (under 3)',            critical:false, result:yn(ld.chokeHazardPolicy)},
+      {fieldNum:'D2-021',label:'Sharp tool storage policy',               critical:false, result:yn(ld.sharpToolPolicy)},
+      {fieldNum:'D2-022',label:'Written space policy on file',             critical:false, result:yn(ld.spacePolicyOnFile)},
+      {fieldNum:'D2-023',label:'ADA accessibility compliant',              critical:false, result:ynNA(ld.adaCompliant)},
+      {fieldNum:'D2-024',label:'Smoke detectors installed',               critical:true,  result:yn(ld.smokeDetectors)},
+      {fieldNum:'D2-025',label:'Smoke detector test date',                critical:false, result:has(ld.smokeDetectorTestDate)},
+      {fieldNum:'D2-026',label:'CO detectors installed',                  critical:true,  result:yn(ld.coDetectors)},
+      {fieldNum:'D2-027',label:'CO detector test date',                   critical:false, result:has(ld.coDetectorTestDate)},
+      {fieldNum:'D2-028',label:'State fencing minimum (ft)',              critical:false, result:has(ld.stateFencingMin)},
+      {fieldNum:'D2-029',label:'Fencing compliant',                       critical:false, result:!ld.fencingHeight?'not_entered':parseFloat(ld.fencingHeight)>=(parseFloat(rules.minFencingHeight)||4)?'pass':'fail'},
+      {fieldNum:'D2-030',label:'Gate self-latching',                      critical:false, result:yn(ld.gateSelfLatching)},
+      {fieldNum:'D2-031',label:'Shade available outdoors',                critical:false, result:yn(ld.shadeAvailable)},
+      {fieldNum:'D2-032',label:'Resilient surfacing under equipment',     critical:false, result:yn(ld.resilientSurfacing)},
+      {fieldNum:'D2-033',label:'Equipment age-appropriate and in good repair', critical:false, result:yn(ld.equipmentAgeAppropriate)},
+      {fieldNum:'D2-034',label:'Fire extinguishers current',              critical:true,  result:yn(ld.fireExtinguishers)},
+      {fieldNum:'D2-035',label:'Fire extinguisher inspection date',       critical:false, result:has(ld.fireExtInspDate)},
+      {fieldNum:'D2-036',label:'Emergency lighting functional',           critical:false, result:yn(ld.emergencyLighting)},
+      {fieldNum:'D2-037',label:'Exit signs posted',                       critical:false, result:yn(ld.exitSigns)},
+      {fieldNum:'D2-038',label:'Facility inspection current',             critical:true,  result:yn(ld.facilityInspCurrent)},
+      {fieldNum:'D2-039',label:'Fire department inspection date',         critical:false, result:has(ld.fireDeptInspDate)},
+      {fieldNum:'D2-040',label:'Health department inspection date',       critical:false, result:has(ld.healthDeptInspDate)},
+      {fieldNum:'D2-041',label:'First aid kit accessible — fully stocked', critical:true, result:yn(ld.firstAidKit)},
+    ],
+    d3:[
+      {fieldNum:'D3-001',label:'Director full name',                      critical:false, result:has(ld.directorName)},
+      {fieldNum:'D3-002',label:'Director education level',                critical:true,  result:has(ld.directorEducation)},
+      {fieldNum:'D3-003',label:'Director ECE credit hours',               critical:false, result:has(ld.directorECECredits)},
+      {fieldNum:'D3-004',label:'Director years experience',               critical:false, result:has(ld.directorExperience)},
+      {fieldNum:'D3-005',label:'Director qualification pathway',          critical:true,  result:has(ld.directorQualPathway)},
+      {fieldNum:'D3-006',label:'Director credential name',                critical:false, result:has(ld.directorCredential)},
+      {fieldNum:'D3-007',label:'Director credential expiry',              critical:false, result:future(ld.directorCredExpiry)},
+      {fieldNum:'D3-008',label:'State director requirement',              critical:false, result:has(ld.stateDirReq)},
+      {fieldNum:'D3-009',label:'Lead teacher count',                      critical:false, result:has(ld.leadTeacherCount)},
+      {fieldNum:'D3-010',label:'Lead teacher qualification met',          critical:true,  result:yn(ld.leadTeacherQualMet)},
+      {fieldNum:'D3-011',label:'Lead teacher education level',            critical:false, result:has(ld.leadTeacherEducation)},
+      {fieldNum:'D3-012',label:'Lead teacher orientation complete',       critical:false, result:yn(ld.leadTeacherOrientation)},
+      {fieldNum:'D3-013',label:'State teacher requirement',               critical:false, result:has(ld.stateTeacherReq)},
+      {fieldNum:'D3-014',label:'Aide count',                              critical:false, result:has(ld.aideCount)},
+      {fieldNum:'D3-015',label:'Aide age requirement met (18+)',          critical:true,  result:yn(ld.aideAgeReq)},
+      {fieldNum:'D3-016',label:'Aide orientation complete',               critical:false, result:yn(ld.aideOrientation)},
+      {fieldNum:'D3-017',label:'Aide supervision policy on file',         critical:false, result:yn(ld.aideSuperPolicy)},
+      {fieldNum:'D3-018',label:'State BG check clearance date',           critical:true,  result:has(ld.stateBgCheckDate)},
+      {fieldNum:'D3-019',label:'FBI fingerprint clearance date',           critical:true,  result:has(ld.fbiBgCheckDate)},
+      {fieldNum:'D3-020',label:'Child abuse registry check',              critical:true,  result:yn(ld.caRegistryCheck)},
+      {fieldNum:'D3-021',label:'BG check agency (state)',                 critical:false, result:has(ld.bgCheckAgency)},
+      {fieldNum:'D3-022',label:'BG check type (state)',                   critical:true,  result:has(ld.bgCheckType)},
+      {fieldNum:'D3-023',label:'Pre-employment affidavit on file',        critical:false, result:yn(ld.preEmpAffidavit)},
+      {fieldNum:'D3-024',label:'Volunteer BG check policy',               critical:false, result:yn(ld.volunteerBgPolicy)},
+      {fieldNum:'D3-025',label:'Workforce registry enrolled',             critical:false, result:ynNA(ld.workforceRegistryEnrolled)},
+      {fieldNum:'D3-026',label:'Registry name (state)',                   critical:false, result:has(ld.stateRegistryName)},
+      {fieldNum:'D3-027',label:'Registry profile ID',                     critical:false, result:has(ld.registryProfileId)},
+      {fieldNum:'D3-028',label:'Total staff count',                       critical:false, result:has(ld.totalStaffCount)},
+      {fieldNum:'D3-029',label:'Staff-to-child ratio compliant (overall)',critical:true,  result:ld.overallRatioCompliant==='Yes'?'pass':ld.overallRatioCompliant==='No'?'fail':'not_entered'},
+      {fieldNum:'D3-030',label:'Director on duty policy on file',         critical:false, result:yn(ld.directorOnDutyPolicy)},
+      {fieldNum:'D3-031',label:'Assistant director qualified',            critical:false, result:ynNA(ld.asstDirQualified)},
+      {fieldNum:'D3-032',label:'Lead teacher CPR current',                critical:false, result:yn(ld.ltCPRCurrent)},
+      {fieldNum:'D3-033',label:'Registry training hours current',         critical:false, result:yn(ld.registryTrainingCurrent)},
+      {fieldNum:'D3-034',label:'Director credential',                     critical:false, result:has(ld.directorCredential)},
+    ],
+    d4:[
+      {fieldNum:'D4-001',label:'Infant enrollment (0–12 mo)',             critical:false, result:has(ld.infantEnrollment)},
+      {fieldNum:'D4-002',label:'Young toddler enrollment (12–17 mo)',     critical:false, result:has(ld.youngToddlerEnrollment)},
+      {fieldNum:'D4-003',label:'Older toddler enrollment (18–35 mo)',     critical:false, result:has(ld.olderToddlerEnrollment)},
+      {fieldNum:'D4-004',label:'Preschool enrollment (3–5 yr)',           critical:false, result:has(ld.preschoolEnrollment)},
+      {fieldNum:'D4-005',label:'School-age enrollment (K+)',              critical:false, result:has(ld.schoolAgeEnrollment)},
+      {fieldNum:'D4-006',label:'Total enrollment',                        critical:true,  result:has(ld.totalEnrollment)},
+      {fieldNum:'D4-007',label:'Licensed capacity (max children)',        critical:true,  result:has(ld.licensedCapacity)},
+      {fieldNum:'D4-008',label:'Enrollment vs capacity ratio',            critical:true,  result:has(ld.enrollmentCapacityRatio)},
+      {fieldNum:'D4-009',label:'Infant staff count',                      critical:false, result:has(ld.infantStaffCount)},
+      {fieldNum:'D4-010',label:'Infant ratio (calc)',                     critical:false, result:has(ld.infantRatioCalc)},
+      {fieldNum:'D4-011',label:'State infant ratio max',                  critical:false, result:has(ld.stateInfantRatioMax)},
+      {fieldNum:'D4-012',label:'Infant ratio compliant',                  critical:true,  result:ld.infantRatioCompliant==='Yes'?'pass':ld.infantRatioCompliant==='No'?'fail':'not_entered'},
+      {fieldNum:'D4-013',label:'Toddler staff count',                     critical:false, result:has(ld.toddlerStaffCount)},
+      {fieldNum:'D4-014',label:'Toddler ratio (calc)',                    critical:false, result:has(ld.toddlerRatioCalc)},
+      {fieldNum:'D4-015',label:'State toddler ratio max',                 critical:false, result:has(ld.stateToddlerRatioMax)},
+      {fieldNum:'D4-016',label:'Toddler ratio compliant',                 critical:true,  result:ld.toddlerRatioCompliant==='Yes'?'pass':ld.toddlerRatioCompliant==='No'?'fail':'not_entered'},
+      {fieldNum:'D4-017',label:'Preschool staff count',                   critical:false, result:has(ld.preschoolStaffCount)},
+      {fieldNum:'D4-018',label:'Preschool ratio (calc)',                  critical:false, result:has(ld.preschoolRatioCalc)},
+      {fieldNum:'D4-019',label:'State preschool ratio max',               critical:false, result:has(ld.statePreschoolRatioMax)},
+      {fieldNum:'D4-020',label:'Preschool ratio compliant',               critical:true,  result:ld.preschoolRatioCompliant==='Yes'?'pass':ld.preschoolRatioCompliant==='No'?'fail':'not_entered'},
+      {fieldNum:'D4-021',label:'School-age staff count',                  critical:false, result:has(ld.schoolAgeStaffCount)},
+      {fieldNum:'D4-022',label:'School-age ratio (calc)',                 critical:false, result:has(ld.schoolAgeRatioCalc)},
+      {fieldNum:'D4-023',label:'State school-age ratio max',              critical:false, result:has(ld.stateSchoolAgeRatioMax)},
+      {fieldNum:'D4-024',label:'School-age ratio compliant',              critical:true,  result:ld.schoolAgeRatioCompliant==='Yes'?'pass':ld.schoolAgeRatioCompliant==='No'?'fail':'not_entered'},
+      {fieldNum:'D4-025',label:'Infant group size',                       critical:false, result:has(ld.infantGroupSize)},
+      {fieldNum:'D4-026',label:'Toddler group size',                      critical:false, result:has(ld.toddlerGroupSize)},
+      {fieldNum:'D4-027',label:'Preschool group size',                    critical:false, result:has(ld.preschoolGroupSize)},
+      {fieldNum:'D4-028',label:'School-age group size',                   critical:false, result:has(ld.schoolAgeGroupSize)},
+      {fieldNum:'D4-029',label:'Mixed-age group present',                 critical:false, result:ynNA(ld.mixedAgeGroup)},
+      {fieldNum:'D4-030',label:'Naptime ratio adjustment applied',        critical:false, result:ynNA(ld.naptimeRatioAdj)},
+      {fieldNum:'D4-031',label:'Daily sign-in/out log maintained',        critical:true,  result:yn(ld.signInLogMaintained)},
+      {fieldNum:'D4-032',label:'Minimum staff on duty met',               critical:true,  result:yn(ld.minStaffOnDuty)},
+      {fieldNum:'D4-033',label:'Authorized pickup list current',          critical:true,  result:yn(ld.authorizedPickupCurrent)},
+      {fieldNum:'D4-034',label:'Director or qualified designee on duty',  critical:false, result:yn(ld.qualDirOnDuty)},
+      {fieldNum:'D4-035',label:'CPR-certified staff on duty',             critical:true,  result:yn(ld.cprStaffOnDuty)},
+      {fieldNum:'D4-036',label:'Staff schedule on file',                  critical:false, result:yn(ld.staffScheduleOnFile)},
+      {fieldNum:'D4-037',label:'Opening/closing ratio compliance',        critical:false, result:yn(ld.openCloseRatioCompliant)},
+      {fieldNum:'D4-038',label:'Substitute staff policy on file',         critical:false, result:yn(ld.subStaffPolicy)},
+      {fieldNum:'D4-039',label:'Sign-in log retention period',            critical:false, result:has(ld.signInLogRetention)},
+    ],
+    d5:[
+      {fieldNum:'D5-001',label:'Staff physical exam on file — all staff', critical:true,  result:yn(ld.staffPhysicalOnFile)},
+      {fieldNum:'D5-002',label:'Most recent staff physical date',         critical:false, result:has(ld.staffPhysicalDate)},
+      {fieldNum:'D5-003',label:'Physical exam renewal required (state)',  critical:false, result:has(ld.physicalRenewalRequired)},
+      {fieldNum:'D5-004',label:'Physical renewal date (DC/state)',        critical:false, result:future(ld.physicalRenewalDate)},
+      {fieldNum:'D5-005',label:'Staff health statement current',          critical:false, result:ynNA(ld.staffHealthStatement)},
+      {fieldNum:'D5-006',label:'Communicable disease policy on file',     critical:false, result:yn(ld.commDiseasePol)},
+      {fieldNum:'D5-007',label:'Illness exclusion policy posted',         critical:false, result:yn(ld.illnessExclusionPosted)},
+      {fieldNum:'D5-008',label:'Staff illness exclusion followed',        critical:false, result:yn(ld.staffIllnessExclusion)},
+      {fieldNum:'D5-009',label:'Staff vaccination records on file',       critical:false, result:ynNA(ld.staffVaccinationRecs)},
+      {fieldNum:'D5-010',label:'TB renewal required (state)',             critical:false, result:has(ld.tbRenewalRequired)},
+      {fieldNum:'D5-011',label:'TB screening complete — all staff',       critical:true,  result:yn(ld.tbScreeningComplete)},
+      {fieldNum:'D5-012',label:'Most recent TB test date',                critical:false, result:has(ld.tbTestDate)},
+      {fieldNum:'D5-013',label:'TB test result',                          critical:false, result:has(ld.tbTestResult)},
+      {fieldNum:'D5-014',label:'TB renewal date (if applicable)',         critical:false, result:future(ld.tbRenewalDate)},
+      {fieldNum:'D5-015',label:'CPR renewal period (state)',              critical:false, result:has(ld.stateCPRRenewal)},
+      {fieldNum:'D5-016',label:'CPR certification on file — required staff', critical:true, result:yn(ld.cprCertOnFile)},
+      {fieldNum:'D5-017',label:'CPR certification type',                  critical:false, result:has(ld.cprCertType)},
+      {fieldNum:'D5-018',label:'CPR certification date',                  critical:false, result:has(ld.cprCertDate)},
+      {fieldNum:'D5-019',label:'CPR expiry date',                         critical:true,  result:future(ld.cprExpiry)},
+      {fieldNum:'D5-020',label:'First aid certification current',         critical:true,  result:yn(ld.firstAidCurrent)},
+      {fieldNum:'D5-021',label:'MR renewal required (state)',             critical:false, result:has(ld.stateMRRenewal)},
+      {fieldNum:'D5-022',label:'Mandated reporter training — all staff',  critical:true,  result:yn(ld.mrTrainingComplete)},
+      {fieldNum:'D5-023',label:'Mandated reporter training date',         critical:false, result:has(ld.mrTrainingDate)},
+      {fieldNum:'D5-024',label:'MR renewal date (if applicable)',         critical:false, result:future(ld.mrRenewalDate)},
+      {fieldNum:'D5-025',label:'State training hours minimum',            critical:false, result:has(ld.stateTrainingMin)},
+      {fieldNum:'D5-026',label:'Annual training hours completed',         critical:true,  result:!ld.annualTrainingHrs?'not_entered':parseFloat(ld.annualTrainingHrs)>=(reg.trainingHrs||12)?'pass':'fail'},
+      {fieldNum:'D5-027',label:'Training log on file',                    critical:false, result:yn(ld.trainingLogOnFile)},
+      {fieldNum:'D5-028',label:'Training topics documented',              critical:false, result:yn(ld.trainingTopicsDocs)},
+      {fieldNum:'D5-029',label:'Standard precautions training current',   critical:false, result:yn(ld.standardPrecautions)},
+      {fieldNum:'D5-030',label:'Safe sleep training — infant staff',       critical:false, result:yn(ld.safeSleepTraining)},
+      {fieldNum:'D5-031',label:'Child abuse recognition training',        critical:false, result:yn(ld.childAbuseTraining)},
+      {fieldNum:'D5-032',label:'CPR-certified staff count',               critical:false, result:num(ld.cprStaffCount,1)},
+      {fieldNum:'D5-033',label:'Food Protection Manager on site',         critical:false, result:ynNA(ld.foodProtMgr)},
+      {fieldNum:'D5-034',label:'AED on premises',                         critical:false, result:ynNA(ld.aedOnPremises)},
+      {fieldNum:'D5-035',label:'Abuse reporting procedure posted',        critical:false, result:yn(ld.abuseReportingPosted)},
+      {fieldNum:'D5-036',label:'Child abuse hotline number posted',       critical:false, result:yn(ld.hotlinePosted)},
+      {fieldNum:'D5-037',label:'New hire orientation complete — all staff',critical:false, result:yn(ld.orientationComplete)},
+      {fieldNum:'D5-038',label:'Orientation hours completed',             critical:false, result:has(ld.orientationHours)},
+      {fieldNum:'D5-039',label:'Orientation completion date',             critical:false, result:has(ld.orientationDate)},
+      {fieldNum:'D5-040',label:'Emergency preparedness training',         critical:false, result:yn(ld.emergPrepTraining)},
+      {fieldNum:'D5-041',label:'Volunteer orientation complete',          critical:false, result:ynNA(ld.volunteerOrientation)},
+      {fieldNum:'D5-042',label:'Director-led training approved',          critical:false, result:ynNA(ld.directorLedTraining)},
+      {fieldNum:'D5-043',label:'QRIS training requirements met',          critical:false, result:ynNA(ld.qrisTrainingMet)},
+    ],
+    d6:[
+      {fieldNum:'D6-001',label:'Child name on file — all children',       critical:true,  result:yn(ld.childName)},
+      {fieldNum:'D6-002',label:'Child DOB on file — all children',        critical:true,  result:yn(ld.childDOB)},
+      {fieldNum:'D6-003',label:'Enrollment date on file — all children',  critical:false, result:yn(ld.enrollmentDate)},
+      {fieldNum:'D6-004',label:'Withdrawal date on file',                 critical:false, result:ynNA(ld.withdrawalDate)},
+      {fieldNum:'D6-005',label:'Child enrollment record complete — all children', critical:true, result:yn(ld.enrollRecordComplete)},
+      {fieldNum:'D6-006',label:'Custody orders on file',                  critical:false, result:ynNA(ld.custodyOrdersOnFile)},
+      {fieldNum:'D6-007',label:'Emergency contact count',                 critical:false, result:has(ld.emergContactCount)},
+      {fieldNum:'D6-008',label:'Emergency contacts on file — all children', critical:true, result:yn(ld.emergContactsOnFile)},
+      {fieldNum:'D6-009',label:'Authorized pickup list on file — all children', critical:true, result:yn(ld.authPickupOnFile)},
+      {fieldNum:'D6-010',label:'Emergency contact update policy',         critical:false, result:yn(ld.emergContactUpdatePolicy)},
+      {fieldNum:'D6-011',label:'Allergy documentation on file — all children with allergies', critical:true, result:yn(ld.allergyDocOnFile)},
+      {fieldNum:'D6-012',label:'Allergy care plan on file',               critical:true,  result:yn(ld.allergyCareplan)},
+      {fieldNum:'D6-013',label:'EpiPen / emergency medication on site',   critical:false, result:ynNA(ld.epiPenOnSite)},
+      {fieldNum:'D6-014',label:'Food allergy policy posted',              critical:false, result:yn(ld.foodAllergyPolicy)},
+      {fieldNum:'D6-015',label:'Allergy list posted in kitchen',          critical:false, result:yn(ld.allergyListInKitchen)},
+      {fieldNum:'D6-016',label:'Medication administration policy on file',critical:false, result:yn(ld.medAdminPolicy)},
+      {fieldNum:'D6-017',label:'Medication authorization on file — all receiving meds', critical:true, result:yn(ld.medAuthOnFile)},
+      {fieldNum:'D6-018',label:'Medication log maintained',               critical:true,  result:yn(ld.medLogMaintained)},
+      {fieldNum:'D6-019',label:'Medications stored correctly — locked & labeled', critical:true, result:yn(ld.medsStoredCorrectly)},
+      {fieldNum:'D6-020',label:'Prescription on file for Rx medications', critical:false, result:ynNA(ld.rxOnFile)},
+      {fieldNum:'D6-021',label:'Non-prescription medication policy',      critical:false, result:yn(ld.nonRxMedPolicy)},
+      {fieldNum:'D6-022',label:'Child physical exam on file — all children', critical:false, result:ynNA(ld.childPhysicalOnFile)},
+      {fieldNum:'D6-023',label:'Developmental screening on file',         critical:false, result:ynNA(ld.devScreeningOnFile)},
+      {fieldNum:'D6-024',label:'Most recent child physical date',         critical:false, result:has(ld.childPhysicalDate)},
+      {fieldNum:'D6-025',label:'Vision and hearing screening',            critical:false, result:ynNA(ld.visionHearingScreen)},
+      {fieldNum:'D6-026',label:'Lead testing documentation',              critical:false, result:ynNA(ld.leadTestingDoc)},
+      {fieldNum:'D6-027',label:'Immunization exemption type',             critical:false, result:ynNA(ld.immExemptionType)},
+      {fieldNum:'D6-028',label:'Immunization records current',            critical:true,  result:yn(ld.immRecordsCurrent)},
+      {fieldNum:'D6-029',label:'Annual immunization report submitted to state', critical:false, result:ynNA(ld.annualImmReporting)},
+      {fieldNum:'D6-030',label:'State exemption types permitted',         critical:false, result:has(ld.stateImmExemptions)},
+      {fieldNum:'D6-031',label:'Exemption documentation on file',        critical:false, result:ynNA(ld.immExemptionDoc)},
+      {fieldNum:'D6-032',label:'Photo / media release signed',             critical:false, result:yn(ld.photoReleaseSign)},
+      {fieldNum:'D6-033',label:'Field trip permission on file',            critical:false, result:ynNA(ld.fieldTripPermission)},
+      {fieldNum:'D6-034',label:'Transportation permission on file',        critical:false, result:ynNA(ld.transportPermission)},
+      {fieldNum:'D6-035',label:'Grievance procedure communicated to families', critical:false, result:yn(ld.grievanceProcedure)},
+      {fieldNum:'D6-036',label:'Infant sleep environment compliant',      critical:true,  result:ynNA(ld.infantSleepEnv)},
+      {fieldNum:'D6-037',label:'Safe sleep policy communicated to parents', critical:false, result:ynNA(ld.safeSleepCommun)},
+      {fieldNum:'D6-038',label:'Infant sleep position exception documented', critical:false, result:ynNA(ld.infantSleepException)},
+      {fieldNum:'D6-039',label:'Safe sleep training — all infant room staff', critical:true, result:ynNA(ld.safeSleepStaffTrain)},
+      {fieldNum:'D6-040',label:'Written policies acknowledged by parent', critical:false, result:yn(ld.writtenPoliciesAck)},
+      {fieldNum:'D6-041',label:'Care log / daily log maintained',          critical:false, result:yn(ld.careLogMaintained)},
+      {fieldNum:'D6-042',label:'Physician contact on file',                critical:false, result:yn(ld.physicianContact)},
+      {fieldNum:'D6-043',label:'Special care needs plan on file',          critical:false, result:ynNA(ld.specialCareNeedsPlan)},
+      {fieldNum:'D6-044',label:'Record retention policy met',             critical:true,  result:yn(ld.recordRetentionMet)},
+      {fieldNum:'D6-045',label:'State record retention period',           critical:false, result:has(ld.stateRecordRetention)},
+      {fieldNum:'D6-046',label:'Immunization record retention compliant',  critical:false, result:yn(ld.immRecordRetention)},
+      {fieldNum:'D6-047',label:'Family meeting documentation on file',    critical:false, result:ynNA(ld.familyMeetingDocs)},
+      {fieldNum:'D6-048',label:'Daily attendance record on file',         critical:true,  result:yn(ld.attendanceRecordOnFile)},
+      {fieldNum:'D6-049',label:'Sign-in/sign-out log maintained',         critical:true,  result:yn(ld.attendanceSignInLog)},
+      {fieldNum:'D6-050',label:'Attendance retention period met',         critical:false, result:yn(ld.attendanceRetentionMet)},
+      {fieldNum:'D6-051',label:'Incident / accident report log',           critical:true,  result:yn(ld.incidentReportLog)},
+    ],
+    d7:[
+      {fieldNum:'D7-001',label:'Fire evacuation plan on file',            critical:true,  result:yn(ld.fireEvacPlan)},
+      {fieldNum:'D7-002',label:'Fire evacuation plan posted visibly',     critical:true,  result:yn(ld.fireEvacPosted)},
+      {fieldNum:'D7-003',label:'Last fire drill date',                    critical:true,  result:age(ld.lastFireDrillDate,35)},
+      {fieldNum:'D7-004',label:'Fire drill frequency (state)',            critical:false, result:has(ld.stateFireDrillFreq)},
+      {fieldNum:'D7-005',label:'Fire drills completed (12 mo)',           critical:true,  result:num(ld.fireDrillsCompleted,1)},
+      {fieldNum:'D7-006',label:'Fire drill log on file',                  critical:true,  result:yn(ld.fireDrillLog)},
+      {fieldNum:'D7-007',label:'Fire safety training — all staff',        critical:true,  result:yn(ld.fireSafetyTraining)},
+      {fieldNum:'D7-008',label:'Fire department inspection current',      critical:true,  result:yn(ld.fireDeptInspCurrent)},
+      {fieldNum:'D7-009',label:'Tornado drill required (state)',          critical:false, result:has(ld.tornadoDrillRequired)},
+      {fieldNum:'D7-010',label:'Last tornado drill date',                 critical:false, result:rules.tornadoDrill==='Not required'?'pass':age(ld.lastTornadoDrillDate,200)},
+      {fieldNum:'D7-011',label:'Tornado drill frequency (state)',         critical:false, result:has(ld.stateTornadoDrillFreq)},
+      {fieldNum:'D7-012',label:'Tornado drills completed (12 mo)',        critical:false, result:rules.tornadoDrill==='Not required'?'pass':has(ld.tornadoDrillsCompleted)},
+      {fieldNum:'D7-013',label:'Tornado drill log on file',               critical:false, result:rules.tornadoDrill==='Not required'?'pass':yn(ld.tornadoDrillLog)},
+      {fieldNum:'D7-014',label:'Designated shelter area identified',      critical:false, result:rules.tornadoDrill==='Not required'?'pass':yn(ld.shelterAreaIdentified)},
+      {fieldNum:'D7-015',label:'Lockdown drill required (state)',         critical:false, result:has(ld.lockdownDrillRequired)},
+      {fieldNum:'D7-016',label:'Last lockdown drill date',                critical:true,  result:age(ld.lastLockdownDate,400)},
+      {fieldNum:'D7-017',label:'Lockdown drill frequency (state)',        critical:false, result:has(ld.stateLockdownFreq)},
+      {fieldNum:'D7-018',label:'Lockdown drills completed (12 mo)',       critical:true,  result:num(ld.lockdownDrillsCompleted,2)},
+      {fieldNum:'D7-019',label:'Lockdown drill log on file',              critical:true,  result:yn(ld.lockdownDrillLog)},
+      {fieldNum:'D7-020',label:'Lockdown procedure communicated to all staff', critical:false, result:yn(ld.lockdownProcComm)},
+      {fieldNum:'D7-021',label:'Written emergency plan on file',          critical:true,  result:yn(ld.emergPlanOnFile)},
+      {fieldNum:'D7-022',label:'Emergency plan reviewed annually',        critical:false, result:yn(ld.emergPlanReviewed)},
+      {fieldNum:'D7-023',label:'Emergency plan communicated to staff',    critical:false, result:yn(ld.emergPlanComm)},
+      {fieldNum:'D7-024',label:'Emergency plan communicated to families', critical:false, result:yn(ld.emergPlanFamilies)},
+      {fieldNum:'D7-025',label:'Emergency contact list current',          critical:true,  result:yn(ld.emergContactListCurrent)},
+      {fieldNum:'D7-026',label:'Off-site relocation meeting point identified', critical:false, result:yn(ld.relocationSite)},
+      {fieldNum:'D7-027',label:'First aid kit accessible — fully stocked',critical:true,  result:yn(ld.firstAidKit)},
+      {fieldNum:'D7-028',label:'First aid kit contents current',         critical:false, result:yn(ld.firstAidKitContents)},
+      {fieldNum:'D7-029',label:'Health department inspection current',    critical:true,  result:yn(ld.healthInspCurrent)},
+      {fieldNum:'D7-030',label:'Health inspection date',                  critical:false, result:has(ld.healthInspDate)},
+      {fieldNum:'D7-031',label:'Health inspection result',                critical:false, result:has(ld.healthInspResult)},
+      {fieldNum:'D7-032',label:'Health inspection report on file',        critical:false, result:yn(ld.healthInspReportOnFile)},
+      {fieldNum:'D7-033',label:'Open health violations count',            critical:false, result:ld.openHealthViolations===''||ld.openHealthViolations===undefined?'not_entered':parseFloat(ld.openHealthViolations)===0?'pass':'fail'},
+      {fieldNum:'D7-034',label:'Food service permit current',             critical:false, result:ynNA(ld.foodServicePermit)},
+      {fieldNum:'D7-035',label:'All drill logs retained',                 critical:true,  result:yn(ld.allDrillLogsRetained)},
+      {fieldNum:'D7-036',label:'Drill log retention period met',          critical:false, result:yn(ld.drillLogRetentionMet)},
+      {fieldNum:'D7-037',label:'Drill logs available for inspector review', critical:false, result:yn(ld.drillLogInspAccess)},
+      {fieldNum:'D7-038',label:'Electronic drill log in use',             critical:false, result:ynNA(ld.electronicDrillLog)},
+      {fieldNum:'D7-039',label:'Water safety plan on file',               critical:false, result:ynNA(ld.waterSafetyPlan)},
+      {fieldNum:'D7-040',label:'Lifeguard certification on file',         critical:false, result:ynNA(ld.lifeguardCert)},
+      {fieldNum:'D7-041',label:'Water activity permission on file — all children', critical:false, result:ynNA(ld.waterActivityPermission)},
+      {fieldNum:'D7-042',label:'Severe weather alert system available',   critical:false, result:yn(ld.severeWeatherAlert)},
+      {fieldNum:'D7-043',label:'Fire alarm system tested',                critical:false, result:yn(ld.fireAlarmTested)},
+      {fieldNum:'D7-044',label:'Communication device available during lockdown', critical:false, result:yn(ld.commDeviceAvailable)},
+    ],
+  };
+}
 
   return {
     d1:[
@@ -477,8 +789,41 @@ export default function AuditSimTab({center,reg,liveData}) {
   const toggleDomain = dKey => setDomainFilter(prev=>prev.includes(dKey)?prev.filter(d=>d!==dKey):[...prev,dKey]);
 
   const runSim = () => {
-    const data      = liveData?.data || {};
-    const allChecks = buildAllChecks(center,reg,data);
+    const raw       = liveData?.data || liveData || {};
+    // Enrich with derived/aliased fields that complianceFields tracks by canonical dataKey
+    const rules     = reg?.rules || {};
+    const ld        = {
+      ...raw,
+      // D1-031 qrisName — from reg
+      qrisName:               raw.qrisType || rules.qrisName || reg?.qrisType || '',
+      // D2-029 fencingCompliant — derived
+      fencingCompliant:       !raw.fencingHeight ? '' :
+                                parseFloat(raw.fencingHeight) >= (parseFloat(rules.minFencingHeight)||4) ? 'Yes' : 'No',
+      // D3-022 bgCheckType — canonical key (same as bgCheckComplete)
+      bgCheckType:            raw.bgCheckComplete || '',
+      // D4 ratio compliant — use pre-saved values or recalc
+      enrollmentCapacityRatio: raw.enrollmentCapacityRatio ||
+                                (raw.totalEnrollment && raw.licensedCapacity
+                                  ? (parseFloat(raw.totalEnrollment) <= parseFloat(raw.licensedCapacity) ? 'Yes' : 'No') : ''),
+      infantRatioCompliant:   raw.infantRatioCompliant ||
+                                (!raw.infantEnrollment ? 'Yes' : !raw.infantStaffCount ? '' :
+                                  parseFloat(raw.infantEnrollment)/parseFloat(raw.infantStaffCount) <= (reg?.infant||4) ? 'Yes' : 'No'),
+      toddlerRatioCompliant:  raw.toddlerRatioCompliant ||
+                                (!raw.olderToddlerEnrollment ? 'Yes' : !raw.toddlerStaffCount ? '' :
+                                  parseFloat(raw.olderToddlerEnrollment)/parseFloat(raw.toddlerStaffCount) <= (reg?.toddler||9) ? 'Yes' : 'No'),
+      preschoolRatioCompliant: raw.preschoolRatioCompliant ||
+                                (!raw.preschoolEnrollment ? 'Yes' : !raw.preschoolStaffCount ? '' :
+                                  parseFloat(raw.preschoolEnrollment)/parseFloat(raw.preschoolStaffCount) <= (reg?.preschool||15) ? 'Yes' : 'No'),
+      schoolAgeRatioCompliant: raw.schoolAgeRatioCompliant ||
+                                (!raw.schoolAgeEnrollment ? 'Yes' : !raw.schoolAgeStaffCount ? '' :
+                                  parseFloat(raw.schoolAgeEnrollment)/parseFloat(raw.schoolAgeStaffCount) <= (reg?.schoolAge||26) ? 'Yes' : 'No'),
+      // D6 canonical aliases
+      careLogMaintained:      raw.careLogMaintained || '',
+      physicianContact:       raw.physicianContact || '',
+      specialCareNeedsPlan:   raw.specialCareNeedsPlan || '',
+      incidentReportLog:      raw.incidentReportLog || '',
+    };
+    const allChecks = buildAllChecks(center,reg,ld);
     const selected  = selectChecks(allChecks,selectedType,domainFilter);
 
     let pass=0,fail=0,notEntered=0;

@@ -233,6 +233,22 @@ function Chip({ text }) {
   return <span className="state-chip">{text}</span>;
 }
 
+// Read-only display field for reg-sourced / calculated values
+function RegInfoRow({ label, value, fieldNum, hint }) {
+  return (
+    <div className="field" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 14px' }}>
+      <label style={{ color: '#64748b', fontSize: 11.5, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: 4 }}>
+        {label}
+        {fieldNum && <span style={{ marginLeft: 6, color: '#94a3b8', fontWeight: 400, fontSize: 10.5 }}>{fieldNum}</span>}
+      </label>
+      <div style={{ fontSize: 13.5, fontWeight: 600, color: value ? '#1e293b' : '#94a3b8', marginTop: 2 }}>
+        {value || <span style={{ fontStyle: 'italic', fontWeight: 400 }}>Not yet set — complete state validation</span>}
+      </div>
+      {hint && <span className="hint">{hint}</span>}
+    </div>
+  );
+}
+
 function Section({ title, sub, children }) {
   return (
     <div className="form-section">
@@ -306,6 +322,87 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
 
   const state = center.state;
   const rules = reg.rules || {};
+
+  // Auto-save all reg-sourced and derived field values so compliance engine + audit can read them
+  useEffect(() => {
+    const ld = liveData;
+    const capacity = parseFloat(ld.licensedCapacity) || 0;
+    const indoorTotal = parseFloat(ld.indoorSqFtTotal) || 0;
+    const outdoorTotal = parseFloat(ld.outdoorSqFtTotal) || 0;
+    const hotWater = parseFloat(ld.hotWaterTemp);
+    const toilets = parseFloat(ld.toiletCount) || 0;
+    const totalEnroll = parseFloat(ld.totalEnrollment) || 0;
+    const infantE = parseFloat(ld.infantEnrollment) || 0;
+    const infantS = parseFloat(ld.infantStaffCount) || 0;
+    const toddlerE = parseFloat(ld.olderToddlerEnrollment) || 0;
+    const toddlerS = parseFloat(ld.toddlerStaffCount) || 0;
+    const preschoolE = parseFloat(ld.preschoolEnrollment) || 0;
+    const preschoolS = parseFloat(ld.preschoolStaffCount) || 0;
+    const schoolAgeE = parseFloat(ld.schoolAgeEnrollment) || 0;
+    const schoolAgeS = parseFloat(ld.schoolAgeStaffCount) || 0;
+
+    const isCompliant = (e, s, max) => !e || !s ? '' : (e/s) <= max ? 'Yes' : 'No';
+
+    const regFields = {
+      licensingAgency:          reg.agency || '',
+      agencyPhone:              reg.agencyPhone || '',
+      agencyWebsite:            reg.agencyWebsite || '',
+      regulatoryCitation:       reg.citation || '',
+      enablingStatute:          reg.enablingStatute || '',
+      qrisType:                 reg.qrisType || rules.qrisName || '',
+      insuranceRequired:        reg.insuranceRequired || '',
+      inspPerYearMin:           reg.inspPerYear ? String(reg.inspPerYear) : '',
+      stateIndoorMin:           reg.indoorSqft ? String(reg.indoorSqft) : '',
+      stateOutdoorMin:          reg.outdoorSqft ? String(reg.outdoorSqft) : '',
+      stateHotWaterMax:         rules.hotWaterMax ? String(rules.hotWaterMax) : '',
+      stateToiletRatio:         rules.toiletRatio || '',
+      stateFencingMin:          rules.minFencingHeight ? String(rules.minFencingHeight) : '',
+      stateDirReq:              reg.directorReq || '',
+      stateTeacherReq:          reg.teacherReq || '',
+      bgCheckAgency:            rules.bgCheckType || '',
+      stateRegistryName:        rules.workforceRegistry || '',
+      stateInfantRatioMax:      reg.infant ? `1:${reg.infant}` : '',
+      stateToddlerRatioMax:     reg.toddler ? `1:${reg.toddler}` : '',
+      statePreschoolRatioMax:   reg.preschool ? `1:${reg.preschool}` : '',
+      stateSchoolAgeRatioMax:   reg.schoolAge ? `1:${reg.schoolAge}` : '',
+      physicalRenewalRequired:  rules.physicalRenewal || '',
+      tbRenewalRequired:        rules.tbTestReq || '',
+      stateCPRRenewal:          rules.cprRenewal || '',
+      stateMRRenewal:           rules.mandatedReporterRenewal || '',
+      stateTrainingMin:         reg.trainingHrs ? String(reg.trainingHrs) : '',
+      stateImmExemptions:       rules.immExemptions || '',
+      stateRecordRetention:     rules.recordRetention ? String(rules.recordRetention) : '',
+      stateFireDrillFreq:       rules.fireDrillFreq || '',
+      tornadoDrillRequired:     rules.tornadoDrill || '',
+      stateTornadoDrillFreq:    rules.tornadoDrill || '',
+      lockdownDrillRequired:    rules.lockdownDrill || '',
+      stateLockdownFreq:        rules.lockdownDrill || '',
+      // Derived / calculated
+      indoorSqFtPerChild:       capacity && indoorTotal ? (indoorTotal/capacity).toFixed(1) : '',
+      outdoorSqFtPerChild:      capacity && outdoorTotal ? (outdoorTotal/capacity).toFixed(1) : '',
+      indoorSpaceCompliant:     capacity && indoorTotal ? ((indoorTotal/capacity) >= (reg.indoorSqft||35) ? 'Yes' : 'No') : '',
+      outdoorSpaceCompliant:    capacity && outdoorTotal ? ((outdoorTotal/capacity) >= (reg.outdoorSqft||75) ? 'Yes' : 'No') : '',
+      hotWaterCompliant:        !isNaN(hotWater) ? (hotWater <= (parseInt(rules.hotWaterMax)||110) ? 'Yes' : 'No') : '',
+      toiletRatioCalc:          toilets && totalEnroll ? `1:${Math.round(totalEnroll/toilets)}` : '',
+      overallRatioCompliant:    ld.minStaffOnDuty === 'Yes' ? 'Yes' : ld.minStaffOnDuty === 'No' ? 'No' : '',
+      enrollmentCapacityRatio:  capacity && totalEnroll ? `${totalEnroll}/${capacity}` : '',
+      infantRatioCalc:          infantS ? `1:${(infantE/infantS).toFixed(1)}` : '',
+      infantRatioCompliant:     isCompliant(infantE, infantS, reg.infant||4),
+      toddlerRatioCalc:         toddlerS ? `1:${(toddlerE/toddlerS).toFixed(1)}` : '',
+      toddlerRatioCompliant:    isCompliant(toddlerE, toddlerS, reg.toddler||9),
+      preschoolRatioCalc:       preschoolS ? `1:${(preschoolE/preschoolS).toFixed(1)}` : '',
+      preschoolRatioCompliant:  isCompliant(preschoolE, preschoolS, reg.preschool||15),
+      schoolAgeRatioCalc:       schoolAgeS ? `1:${(schoolAgeE/schoolAgeS).toFixed(1)}` : '',
+      schoolAgeRatioCompliant:  isCompliant(schoolAgeE, schoolAgeS, reg.schoolAge||26),
+    };
+    Object.entries(regFields).forEach(([key, val]) => {
+      if (val !== undefined && val !== '' && val !== (ld[key] || '')) updateData(key, val);
+    });
+  }, [reg, rules, liveData.licensedCapacity, liveData.indoorSqFtTotal, liveData.outdoorSqFtTotal, // eslint-disable-line react-hooks/exhaustive-deps
+      liveData.hotWaterTemp, liveData.toiletCount, liveData.totalEnrollment,
+      liveData.infantEnrollment, liveData.infantStaffCount, liveData.olderToddlerEnrollment,
+      liveData.toddlerStaffCount, liveData.preschoolEnrollment, liveData.preschoolStaffCount,
+      liveData.schoolAgeEnrollment, liveData.schoolAgeStaffCount, liveData.minStaffOnDuty]);
 
   // All 287 fields stored flat under canonical dataKey — updateData(key, value)
   const set = (key, val) => updateData(key, val);
@@ -480,7 +577,21 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="QRIS expiry / renewal date" hint={expiryHint(liveData.qrisRenewalDate)}>
               <input type="date" value={liveData.qrisRenewalDate || ''} onChange={e => set('qrisRenewalDate', e.target.value)} />
             </Field>
+            <RegInfoRow label="QRIS participation type" fieldNum="D1-032" value={reg.qrisType || rules.qrisName || ''} hint="From state regulation data" />
             <UploadRow fieldKey="qris_certificate" centerId={centerId} label="QRIS certificate or award letter" hint="Upload QRIS rating certificate · PDF or JPG · Max 5 MB" />
+          </Section>
+
+          <Section title="State Regulatory Reference" sub="Read-only — sourced from validated state regulation data">
+            <RegInfoRow label="Licensing agency name" fieldNum="D1-025" value={reg.agency || ''} />
+            <RegInfoRow label="Agency phone number" fieldNum="D1-026" value={reg.agencyPhone || ''} />
+            <RegInfoRow label="Agency website" fieldNum="D1-027" value={reg.agencyWebsite || ''} />
+            <RegInfoRow label="Regulatory citation" fieldNum="D1-028" value={reg.citation || ''} />
+            <RegInfoRow label="Enabling statute" fieldNum="D1-029" value={reg.enablingStatute || ''} />
+            <RegInfoRow label="Insurance required (state)" fieldNum="D1-033" value={reg.insuranceRequired || ''} />
+            <RegInfoRow label="Inspections per year (state min)" fieldNum="D1-034" value={reg.inspPerYear ? String(reg.inspPerYear) : ''} />
+            <Field label="State regulation last validated" fieldKey="regLastValidated">
+              <input type="date" value={liveData.regLastValidated || ''} onChange={e => set('regLastValidated', e.target.value)} />
+            </Field>
           </Section>
         </>)}
 
@@ -503,6 +614,26 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
                 return <span className={`hint ${ok ? 'ok' : 'bad'}`}>{per} sq ft/child — state min {reg.outdoorSqft || 75}</span>;
               })()}
             </Field>
+            <RegInfoRow label="State indoor minimum (sq ft)" fieldNum="D2-003" value={reg.indoorSqft ? `${reg.indoorSqft} sq ft per child` : ''} />
+            <RegInfoRow label="State outdoor minimum (sq ft)" fieldNum="D2-007" value={reg.outdoorSqft ? `${reg.outdoorSqft} sq ft per child` : ''} />
+            {liveData.indoorSqFtTotal && liveData.licensedCapacity && (
+              <RegInfoRow label="Indoor sq ft per child (calc)" fieldNum="D2-002"
+                value={`${(parseFloat(liveData.indoorSqFtTotal)/parseFloat(liveData.licensedCapacity)).toFixed(1)} sq ft/child`}
+                hint={parseFloat(liveData.indoorSqFtTotal)/parseFloat(liveData.licensedCapacity) >= (reg.indoorSqft||35) ? '✓ Compliant' : '✗ Below state minimum'} />
+            )}
+            {liveData.outdoorSqFtTotal && liveData.licensedCapacity && (
+              <RegInfoRow label="Outdoor sq ft per child (calc)" fieldNum="D2-006"
+                value={`${(parseFloat(liveData.outdoorSqFtTotal)/parseFloat(liveData.licensedCapacity)).toFixed(1)} sq ft/child`}
+                hint={parseFloat(liveData.outdoorSqFtTotal)/parseFloat(liveData.licensedCapacity) >= (reg.outdoorSqft||75) ? '✓ Compliant' : '✗ Below state minimum'} />
+            )}
+            <RegInfoRow label="Indoor space compliant" fieldNum="D2-004"
+              value={liveData.indoorSqFtTotal && liveData.licensedCapacity
+                ? (parseFloat(liveData.indoorSqFtTotal)/parseFloat(liveData.licensedCapacity) >= (reg.indoorSqft||35) ? 'Yes — compliant' : 'No — below minimum')
+                : ''} />
+            <RegInfoRow label="Outdoor space compliant" fieldNum="D2-008"
+              value={liveData.outdoorSqFtTotal && liveData.licensedCapacity
+                ? (parseFloat(liveData.outdoorSqFtTotal)/parseFloat(liveData.licensedCapacity) >= (reg.outdoorSqft||75) ? 'Yes — compliant' : 'No — below minimum')
+                : ''} />
             <Field label="Room capacity sign posted">
               <YesNo value={liveData.roomCapacityPosted || ''} onChange={v => set('roomCapacityPosted', v)} />
             </Field>
@@ -520,9 +651,19 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
                 State max: {rules.hotWaterMax || 110}°F
               </span>}
             </Field>
+            <RegInfoRow label="Hot water max (state)" fieldNum="D2-012" value={rules.hotWaterMax ? `${rules.hotWaterMax}°F` : ''} />
+            <RegInfoRow label="Hot water compliant" fieldNum="D2-013"
+              value={liveData.hotWaterTemp
+                ? (parseFloat(liveData.hotWaterTemp) <= (parseInt(rules.hotWaterMax)||110) ? 'Yes — compliant' : 'No — exceeds limit')
+                : ''} />
             <Field label="Child-accessible toilets (count)" chip={`${state}: ${rules.toiletRatio || '1:15'}`} fieldKey="toiletCount">
               <input type="number" min="0" placeholder="e.g. 7" value={liveData.toiletCount || ''} onChange={e => set('toiletCount', e.target.value)} />
             </Field>
+            <RegInfoRow label="State toilet ratio minimum" fieldNum="D2-016" value={rules.toiletRatio || ''} />
+            <RegInfoRow label="Toilet ratio (calc)" fieldNum="D2-015"
+              value={liveData.toiletCount && liveData.totalEnrollment
+                ? `1:${Math.round(parseFloat(liveData.totalEnrollment)/parseFloat(liveData.toiletCount))}`
+                : ''} hint="Requires toilet count + total enrollment" />
             <Field label="Hand-washing sinks (count)" fieldKey="sinkCount">
               <input type="number" min="0" value={liveData.sinkCount || ''} onChange={e => set('sinkCount', e.target.value)} />
             </Field>
@@ -535,6 +676,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Fencing height (ft)" chip={`${state} min: ${rules.minFencingHeight || 4} ft`} fieldKey="fencingCompliant">
               <input type="number" step="0.5" placeholder="e.g. 5" value={liveData.fencingHeight || ''} onChange={e => set('fencingHeight', e.target.value)} />
             </Field>
+            <RegInfoRow label="State fencing minimum (ft)" fieldNum="D2-028" value={rules.minFencingHeight ? `${rules.minFencingHeight} ft` : ''} />
             <Field label="Gate self-latching">
               <YesNo value={liveData.gateSelfLatching || ''} onChange={v => set('gateSelfLatching', v)} />
             </Field>
@@ -617,6 +759,27 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <strong>{state} director requirement:</strong> {reg.directorReq || 'See state regulations'}<br />
             <strong>{state} teacher requirement:</strong> {reg.teacherReq || 'See state regulations'}
           </div>
+
+          <Section title="Staff Counts">
+            <Field label="Total staff count" required fieldKey="totalStaffCount">
+              <input type="number" min="0" value={liveData.totalStaffCount || ''} onChange={e => set('totalStaffCount', e.target.value)} />
+            </Field>
+            <Field label="Lead teacher count" fieldKey="leadTeacherCount">
+              <input type="number" min="0" value={liveData.leadTeacherCount || ''} onChange={e => set('leadTeacherCount', e.target.value)} />
+            </Field>
+            <Field label="Aide count" fieldKey="aideCount">
+              <input type="number" min="0" value={liveData.aideCount || ''} onChange={e => set('aideCount', e.target.value)} />
+            </Field>
+          </Section>
+
+          <Section title="State Qualification Requirements" sub="Read-only — from validated state regulation data">
+            <RegInfoRow label="State director requirement" fieldNum="D3-008" value={reg.directorReq || ''} />
+            <RegInfoRow label="State teacher requirement" fieldNum="D3-013" value={reg.teacherReq || ''} />
+            <RegInfoRow label="BG check agency (state)" fieldNum="D3-021" value={reg.rules?.bgCheckType || ''} />
+            <RegInfoRow label="Registry name (state)" fieldNum="D3-026" value={reg.rules?.workforceRegistry || ''} />
+            <RegInfoRow label="Staff-to-child ratio compliant (overall)" fieldNum="D3-029"
+              value={liveData.minStaffOnDuty === 'Yes' ? 'Yes — confirmed' : liveData.minStaffOnDuty === 'No' ? 'No — review ratios' : ''} />
+          </Section>
 
           <Section title="Director Qualifications">
             <Field label="Director full name" required>
@@ -733,6 +896,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Physical renewal date (DC/state)" chip="DC: annual renewal required">
               <input type="date" value={liveData.physicalRenewalDate || ''} onChange={e => set('physicalRenewalDate', e.target.value)} />
             </Field>
+            <RegInfoRow label="Physical exam renewal required (state)" fieldNum="D5-003" value={reg.rules?.physicalRenewal || rules.physicalRenewal || ''} hint="From state regulation" />
             <Field label="Staff health statement current" chip="CO: annual self-report required">
               <YesNo value={liveData.staffHealthStatement || ''} onChange={v => set('staffHealthStatement', v)} opts={['Yes','No','Not required']} />
             </Field>
@@ -767,6 +931,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="TB renewal date (if applicable)" hint={expiryHint(liveData.tbRenewalDate)}>
               <input type="date" value={liveData.tbRenewalDate || ''} onChange={e => set('tbRenewalDate', e.target.value)} />
             </Field>
+            <RegInfoRow label="TB renewal required (state)" fieldNum="D5-010" value={rules.tbTestReq || ''} hint="From state regulation" />
           </Section>
 
           <Section title="CPR & First Aid" sub={`${state}: renewal every ${rules.cprRenewal || '2 years'}`}>
@@ -785,6 +950,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="CPR expiry date" required hint={expiryHint(liveData.cprExpiry)}>
               <input type="date" value={liveData.cprExpiry || ''} onChange={e => set('cprExpiry', e.target.value)} />
             </Field>
+            <RegInfoRow label="CPR renewal period (state)" fieldNum="D5-015" value={rules.cprRenewal || ''} hint="From state regulation" />
             <Field label="First aid certification current" required>
               <YesNo value={liveData.firstAidCurrent || ''} onChange={v => set('firstAidCurrent', v)} />
             </Field>
@@ -810,6 +976,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="MR renewal date (if applicable)" hint={expiryHint(liveData.mrRenewalDate)}>
               <input type="date" value={liveData.mrRenewalDate || ''} onChange={e => set('mrRenewalDate', e.target.value)} />
             </Field>
+            <RegInfoRow label="MR renewal required (state)" fieldNum="D5-021" value={rules.mandatedReporterRenewal || ''} hint="From state regulation" />
             <Field label="Abuse reporting procedure posted">
               <YesNo value={liveData.abuseReportingPosted || ''} onChange={v => set('abuseReportingPosted', v)} />
             </Field>
@@ -832,6 +999,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
                 </span>;
               })()}
             </Field>
+            <RegInfoRow label="State training hours minimum" fieldNum="D5-025" value={reg.trainingHrs ? `${reg.trainingHrs} hrs/year` : ''} hint="From state regulation" />
             <Field label="Training log on file">
               <YesNo value={liveData.trainingLogOnFile || ''} onChange={v => set('trainingLogOnFile', v)} />
             </Field>
@@ -904,6 +1072,11 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Total enrollment">
               <input type="number" min="0" value={liveData.totalEnrollment || ''} onChange={e => set('totalEnrollment', e.target.value)} />
             </Field>
+            {liveData.totalEnrollment && liveData.licensedCapacity && (
+              <RegInfoRow label="Enrollment vs capacity ratio" fieldNum="D4-008"
+                value={`${liveData.totalEnrollment} / ${liveData.licensedCapacity} (${Math.round(parseFloat(liveData.totalEnrollment)/parseFloat(liveData.licensedCapacity)*100)}% capacity)`}
+                hint={parseFloat(liveData.totalEnrollment) <= parseFloat(liveData.licensedCapacity) ? '✓ Within licensed capacity' : '✗ Exceeds licensed capacity'} />
+            )}
           </Section>
 
           <Section title="Calculated Ratios">
@@ -911,6 +1084,26 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <RatioRow label="Toddlers (18–36 months)" enrollKey="olderToddlerEnrollment" staffKey="toddlerStaffCount"   maxRatio={`1:${reg.toddler || 9}`} />
             <RatioRow label="Preschool (3–5 years)"   enrollKey="preschoolEnrollment"   staffKey="preschoolStaffCount" maxRatio={`1:${reg.preschool || 15}`} />
             <RatioRow label="School-age (6+)"         enrollKey="schoolAgeEnrollment"   staffKey="schoolAgeStaffCount" maxRatio={`1:${reg.schoolAge || 26}`} />
+          </Section>
+
+          <Section title="State Ratio Reference" sub="Read-only — from validated state regulation data">
+            <RegInfoRow label="State infant ratio max" fieldNum="D4-011" value={reg.infant ? `1:${reg.infant}` : ''} />
+            <RegInfoRow label="State toddler ratio max" fieldNum="D4-015" value={reg.toddler ? `1:${reg.toddler}` : ''} />
+            <RegInfoRow label="State preschool ratio max" fieldNum="D4-019" value={reg.preschool ? `1:${reg.preschool}` : ''} />
+            <RegInfoRow label="State school-age ratio max" fieldNum="D4-023" value={reg.schoolAge ? `1:${reg.schoolAge}` : ''} />
+            {(() => {
+              const calcCompliant = (enroll, staff, max) => {
+                const e = parseFloat(liveData[enroll]); const s = parseFloat(liveData[staff]);
+                if (!e || !s) return '';
+                return (e/s) <= max ? 'Yes — compliant' : 'No — exceeds max';
+              };
+              return (<>
+                <RegInfoRow label="Infant ratio compliant" fieldNum="D4-012" value={calcCompliant('infantEnrollment','infantStaffCount', reg.infant||4)} />
+                <RegInfoRow label="Toddler ratio compliant" fieldNum="D4-016" value={calcCompliant('olderToddlerEnrollment','toddlerStaffCount', reg.toddler||9)} />
+                <RegInfoRow label="Preschool ratio compliant" fieldNum="D4-020" value={calcCompliant('preschoolEnrollment','preschoolStaffCount', reg.preschool||15)} />
+                <RegInfoRow label="School-age ratio compliant" fieldNum="D4-024" value={calcCompliant('schoolAgeEnrollment','schoolAgeStaffCount', reg.schoolAge||26)} />
+              </>);
+            })()}
           </Section>
 
           <Section title="Group Sizes">
@@ -964,6 +1157,9 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Substitute staff policy on file">
               <YesNo value={liveData.subStaffPolicy || ''} onChange={v => set('subStaffPolicy', v)} />
             </Field>
+            <Field label="Authorized pickup list current" required fieldKey="authorizedPickupCurrent">
+              <YesNo value={liveData.authorizedPickupCurrent || ''} onChange={v => set('authorizedPickupCurrent', v)} />
+            </Field>
           </Section>
         </>)}
 
@@ -974,9 +1170,22 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.enrollRecordComplete || ''} onChange={v => set('enrollRecordComplete', v)} />
             </Field>
             <NoteField fieldKey="enrollRecordComplete" centerId={centerId} />
+            <Field label="Child name on file — all children" required fieldKey="childName">
+              <YesNo value={liveData.childName || ''} onChange={v => set('childName', v)} />
+            </Field>
+            <Field label="Child DOB on file — all children" required fieldKey="childDOB">
+              <YesNo value={liveData.childDOB || ''} onChange={v => set('childDOB', v)} />
+            </Field>
+            <Field label="Enrollment date on file — all children" fieldKey="enrollmentDate">
+              <YesNo value={liveData.enrollmentDate || ''} onChange={v => set('enrollmentDate', v)} />
+            </Field>
+            <Field label="Withdrawal date on file (where applicable)" fieldKey="withdrawalDate">
+              <YesNo value={liveData.withdrawalDate || ''} onChange={v => set('withdrawalDate', v)} opts={['Yes','No','Not applicable']} />
+            </Field>
             <Field label="Custody orders on file (where applicable)" fieldKey="custodyOrdersOnFile">
               <YesNo value={liveData.custodyOrdersOnFile || ''} onChange={v => set('custodyOrdersOnFile', v)} opts={['Yes','No','Not applicable']} />
             </Field>
+            <RegInfoRow label="State record retention period" fieldNum="D6-045" value={rules.recordRetention ? `${rules.recordRetention} years minimum` : ''} hint="From state regulation" />
             <Field label="Record retention policy met" chip={`${state}: ${rules.recordRetention || '1–3'} yr min`}>
               <YesNo value={liveData.recordRetentionMet || ''} onChange={v => set('recordRetentionMet', v)} />
             </Field>
@@ -993,11 +1202,17 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Special care needs plan on file">
               <YesNo value={liveData.specialCareNeedsPlan || ''} onChange={v => set('specialCareNeedsPlan', v)} opts={['Yes','No','Not applicable']} />
             </Field>
+            <Field label="Family meeting documentation on file" fieldKey="familyMeetingDocs">
+              <YesNo value={liveData.familyMeetingDocs || ''} onChange={v => set('familyMeetingDocs', v)} opts={['Yes','No','Not applicable']} />
+            </Field>
           </Section>
 
           <Section title="Emergency Contacts">
             <Field label="Emergency contacts on file — all children" required fieldKey="emergencyContacts">
               <YesNo value={liveData.emergContactsOnFile || ''} onChange={v => set('emergContactsOnFile', v)} />
+            </Field>
+            <Field label="Emergency contact count (minimum)" fieldKey="emergContactCount">
+              <input type="number" min="0" placeholder="e.g. 2 per child" value={liveData.emergContactCount || ''} onChange={e => set('emergContactCount', e.target.value)} />
             </Field>
             <Field label="Authorized pickup list on file — all children" required fieldKey="authPickupOnFile">
               <YesNo value={liveData.authPickupOnFile || ''} onChange={v => set('authPickupOnFile', v)} />
@@ -1072,6 +1287,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
                 {state} immunization exemptions: {rules.immExemptions || 'Medical + Religious'}
               </div>
             </div>
+            <RegInfoRow label="State exemption types permitted" fieldNum="D6-030" value={rules.immExemptions || ''} hint="From state regulation" />
             <Field label="Immunization records on file — all children" required fieldKey="immunizationRecords">
               <YesNo value={liveData.immRecordsOnFile || ''} onChange={v => set('immRecordsOnFile', v)} />
             </Field>
@@ -1157,6 +1373,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
         {/* ── D7: EMERGENCY & SAFETY (44 fields) ── */}
         {sub === 'emergency' && (<>
           <Section title="Fire Safety" sub={`${state}: fire evacuation drill required ${rules.fireDrillFreq || 'monthly'}`}>
+            <RegInfoRow label="Fire drill frequency (state)" fieldNum="D7-004" value={rules.fireDrillFreq || ''} hint="From state regulation" />
             <Field label="Fire evacuation plan on file" required fieldKey="fireEvacPlan">
               <YesNo value={liveData.fireEvacPlan || ''} onChange={v => set('fireEvacPlan', v)} />
             </Field>
@@ -1188,6 +1405,9 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
           </Section>
 
           <Section title="Tornado / Severe Weather" sub={`${state}: ${rules.tornadoDrill || 'See state requirement'}`}>
+            <RegInfoRow label="Tornado drill required (state)" fieldNum="D7-009" value={rules.tornadoDrill || ''} hint="From state regulation" />
+            <RegInfoRow label="Tornado drill frequency (state)" fieldNum="D7-011"
+              value={rules.tornadoDrill && rules.tornadoDrill !== 'Not required' ? rules.tornadoDrill : (rules.tornadoDrill === 'Not required' ? 'Not required' : '')} hint="From state regulation" />
             {rules.tornadoDrill === 'Not required'
               ? <div style={{ gridColumn:'1/-1', background:'#eef7f2', border:'1px solid #a7d4ba', borderRadius:8, padding:'12px', fontSize:13, color:'#166534' }}>
                   Tornado drills not required in {state} — this section marked compliant automatically.
@@ -1214,6 +1434,8 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
           </Section>
 
           <Section title="Lockdown / Active Threat" sub={`${state}: lockdown drill ${rules.lockdownDrill || '2x/year'}`}>
+            <RegInfoRow label="Lockdown drill required (state)" fieldNum="D7-015" value={rules.lockdownDrill || ''} hint="From state regulation" />
+            <RegInfoRow label="Lockdown drill frequency (state)" fieldNum="D7-017" value={rules.lockdownDrill || ''} hint="From state regulation" />
             <Field label="Last lockdown drill date" required fieldKey="lastLockdownDate">
               <input type="date" value={liveData.lastLockdownDate || ''} onChange={e => set('lastLockdownDate', e.target.value)} />
             </Field>
