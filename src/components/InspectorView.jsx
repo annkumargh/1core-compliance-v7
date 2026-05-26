@@ -77,7 +77,7 @@ function getDomainFields(center,reg,liveData){
   return [
     {id:'d1',label:'Licensing & Administration',dNum:'D1',color:D_COLORS[0],fields:[
       {id:'licenseNumber',label:'License number',value:v(ld.licenseNumber||seed._licenseNumber)},
-      {id:'licenseIssueDate',label:'License issue date',value:v(ld.licenseIssueDate)},
+      {id:'licenseIssueDate',label:'License issue date',fieldNum:'D1-036',value:v(ld.licenseIssueDate)},
       {id:'licenseClass',label:'License class / type',value:v(ld.licenseClass)},
       {id:'licenseExpiry',label:'License expiry date',value:v(ld.licenseExpiry)},
       {id:'licenseRenewalDate',label:'License renewal date',value:v(ld.licenseRenewalDate)},
