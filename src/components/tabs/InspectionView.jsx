@@ -59,7 +59,7 @@ function saveNR(v) { try { localStorage.setItem(LS_KEY_NR, JSON.stringify(v)); }
 
 // ── Field row ─────────────────────────────────────────────────────────────
 function FieldRow({ field, onFix, domainId }) {
-  const { label, requirement, value, status, note } = field;
+  const { label, requirement, value, status, note, fieldNum } = field;
   const isIssue  = status === 'missing' || status === 'atrisk';
   const isNoData = status === 'nodata';
   const isGood   = status === 'compliant';
@@ -72,9 +72,18 @@ function FieldRow({ field, onFix, domainId }) {
       borderBottom:'1px solid #f1f5f9',
       alignItems:'center',
     }}>
-      {/* Field name */}
+      {/* Field name + fieldNum badge */}
       <div style={{ fontSize:13, fontWeight: isIssue ? 600 : 500, color: isIssue ? '#1e293b' : '#374151' }}>
-        {label}
+        <span style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+          {label}
+          {fieldNum && (
+            <span style={{ fontSize:10, fontWeight:600, color:'#94a3b8', background:'#f1f5f9',
+              border:'1px solid #e2e8f0', borderRadius:4, padding:'1px 5px',
+              letterSpacing:'0.04em', flexShrink:0 }}>
+              {fieldNum}
+            </span>
+          )}
+        </span>
         {note && <div style={{ fontSize:11, color:'#94a3b8', marginTop:2 }}>{note}</div>}
       </div>
       {/* State requirement */}

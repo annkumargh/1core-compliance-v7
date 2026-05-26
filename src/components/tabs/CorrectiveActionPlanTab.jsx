@@ -3,6 +3,86 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // ── Storage keys ──────────────────────────────────────────────────────────────
 const LS_KEY_CAP      = '1core_compliance_v6_cap';
 const LS_KEY_FINDINGS = '1core_compliance_v6_inspector_findings';
+
+// ── Canonical fieldNum lookup (shared with DataEntryTab) ─────────────────────
+const FIELD_NUMS = {
+  'licenseNumber':'D1-001','licenseExpiry':'D1-002','licensedCapacity':'D4-007',
+  'licenseCertOnFile':'D1-004','licenseClass':'D1-005','facilityNumber':'D1-006',
+  'licenseRenewalDate':'D1-007','glInsuranceProvider':'D1-008','glPolicyNumber':'D1-009',
+  'glExpiry':'D1-010','glCoverageAmount':'D1-011','coiOnFile':'D1-012',
+  'workersCompCurrent':'D1-013','workersCompExpiry':'D1-014','propertyInsurance':'D1-015',
+  'lastInspectionDate':'D1-016','lastInspectionResult':'D1-017','inspectionReportOnFile':'D1-018',
+  'openViolationsCount':'D1-019','prevInspectionDate':'D1-020','complaintInspections':'D1-021',
+  'qrisEnrolled':'D1-022','qrisRating':'D1-023','qrisRenewalDate':'D1-024','postedNotices':'D1-035',
+  'indoorSqFtTotal':'D2-001','roomCapacityPosted':'D2-009','floorPlanOnFile':'D2-010',
+  'hotWaterTemp':'D2-011','toiletCount':'D2-014','sinkCount':'D2-017','drinkingWater':'D2-018',
+  'coDetectors':'D2-019','coDetectorTestDate':'D2-020','smokeDetectors':'D2-021',
+  'smokeDetectorTestDate':'D2-022','fireExtinguishers':'D2-023','fireExtInspDate':'D2-024',
+  'emergencyLighting':'D2-025','exitSigns':'D2-026','fencingHeight':'D2-027',
+  'gateSelfLatching':'D2-030','shadeAvailable':'D2-031','resilientSurfacing':'D2-032',
+  'equipmentAgeAppropriate':'D2-033','spacePolicyOnFile':'D2-034','hazMatStorage':'D2-035',
+  'chokeHazardPolicy':'D2-036','sharpToolPolicy':'D2-037','facilityInspCurrent':'D2-038',
+  'fireDeptInspDate':'D2-039','healthDeptInspDate':'D2-040','adaCompliant':'D2-041',
+  'directorName':'D3-001','directorEducation':'D3-002','directorECECredits':'D3-003',
+  'directorExperience':'D3-004','directorQualPathway':'D3-005','directorCredential':'D3-006',
+  'directorCredExpiry':'D3-007','leadTeacherQualMet':'D3-010','leadTeacherEducation':'D3-011',
+  'leadTeacherOrientation':'D3-012','aideAgeReq':'D3-015','aideOrientation':'D3-016',
+  'bgCheckComplete':'D3-017','stateBgCheckDate':'D3-018','fbiBgCheckDate':'D3-019',
+  'caRegistryCheck':'D3-020','preEmpAffidavit':'D3-023','workforceRegistryEnrolled':'D3-024',
+  'registryProfileId':'D3-025','registryTrainingCurrent':'D3-027','overallRatioCompliant':'D3-029',
+  'volunteerBgPolicy':'D3-030','directorOnDutyPolicy':'D3-031','ltCPRCurrent':'D3-032',
+  'aideSuperPolicy':'D3-033','asstDirQualified':'D3-034','totalStaffCount':'D3-028',
+  'leadTeacherCount':'D3-009','aideCount':'D3-014',
+  'infantEnrollment':'D4-001','youngToddlerEnrollment':'D4-002','olderToddlerEnrollment':'D4-003',
+  'preschoolEnrollment':'D4-004','schoolAgeEnrollment':'D4-005','totalEnrollment':'D4-006',
+  'infantStaffCount':'D4-009','toddlerStaffCount':'D4-013','preschoolStaffCount':'D4-017',
+  'schoolAgeStaffCount':'D4-021','infantGroupSize':'D4-025','toddlerGroupSize':'D4-026',
+  'preschoolGroupSize':'D4-027','schoolAgeGroupSize':'D4-028','mixedAgeGroup':'D4-029',
+  'naptimeRatioAdj':'D4-030','signInLogMaintained':'D4-031','signInLogRetention':'D4-032',
+  'minStaffOnDuty':'D4-034','qualDirOnDuty':'D4-035','cprStaffOnDuty':'D4-036',
+  'staffScheduleOnFile':'D4-037','openCloseRatioCompliant':'D4-038','subStaffPolicy':'D4-039',
+  'authorizedPickupCurrent':'D4-033',
+  'staffPhysicalOnFile':'D5-001','staffPhysicalDate':'D5-002','physicalRenewalDate':'D5-004',
+  'staffHealthStatement':'D5-005','commDiseasePol':'D5-006','tbScreeningComplete':'D5-007',
+  'tbTestDate':'D5-008','tbTestResult':'D5-009','tbRenewalDate':'D5-011',
+  'cprCertOnFile':'D5-012','cprCertDate':'D5-013','cprExpiry':'D5-014','cprCertType':'D5-016',
+  'firstAidCurrent':'D5-017','cprStaffCount':'D5-018','mrTrainingComplete':'D5-019',
+  'mrTrainingDate':'D5-020','mrRenewalDate':'D5-022','abuseReportingPosted':'D5-023',
+  'annualTrainingHrs':'D5-024','trainingLogOnFile':'D5-026','trainingTopicsDocs':'D5-027',
+  'directorLedTraining':'D5-028','safeSleepTraining':'D5-029','standardPrecautions':'D5-030',
+  'childAbuseTraining':'D5-031','orientationComplete':'D5-032','orientationHours':'D5-033',
+  'orientationDate':'D5-034','emergPrepTraining':'D5-035','foodProtMgr':'D5-036',
+  'illnessExclusionPosted':'D5-037','staffIllnessExclusion':'D5-038','staffVaccinationRecs':'D5-039',
+  'aedOnPremises':'D5-040','qrisTrainingMet':'D5-041','volunteerOrientation':'D5-042','hotlinePosted':'D5-043',
+  'childName':'D6-001','childDOB':'D6-002','enrollmentDate':'D6-003','withdrawalDate':'D6-004',
+  'enrollRecordComplete':'D6-005','custodyOrdersOnFile':'D6-009','emergContactCount':'D6-007',
+  'emergContactsOnFile':'D6-008','authPickupOnFile':'D6-011','allergyCareplan':'D6-012',
+  'allergyDocOnFile':'D6-010','epiPenOnSite':'D6-013','foodAllergyPolicy':'D6-014',
+  'allergyListInKitchen':'D6-015','medAdminPolicy':'D6-016','medAuthOnFile':'D6-017',
+  'medLogMaintained':'D6-018','medsStoredCorrectly':'D6-019','rxOnFile':'D6-020',
+  'childPhysicalOnFile':'D6-021','childPhysicalDate':'D6-022','visionHearingScreen':'D6-023',
+  'leadTestingDoc':'D6-024','immRecordsOnFile':'D6-025','immRecordsCurrent':'D6-026',
+  'immExemptionType':'D6-027','immExemptionDoc':'D6-028','annualImmReporting':'D6-029',
+  'writtenPoliciesAck':'D6-031','photoReleaseSign':'D6-032','fieldTripPermission':'D6-033',
+  'transportPermission':'D6-034','grievanceProcedure':'D6-035','safeSleepPolicy':'D6-036',
+  'safeSleepCommun':'D6-037','infantSleepEnv':'D6-038','safeSleepStaffTrain':'D6-039',
+  'infantSleepException':'D6-040','careLogMaintained':'D6-041','physicianContact':'D6-042',
+  'specialCareNeedsPlan':'D6-043','recordRetentionMet':'D6-044','familyMeetingDocs':'D6-047',
+  'attendanceSignInLog':'D6-049','incidentReportLog':'D6-051','parentAgreementSigned':'D6-010',
+  'fireEvacPlan':'D7-001','fireEvacPosted':'D7-002','lastFireDrillDate':'D7-003',
+  'fireDrillsCompleted':'D7-005','fireDrillLog':'D7-006','fireSafetyTraining':'D7-007',
+  'fireDeptInspCurrent':'D7-008','lastTornadoDrillDate':'D7-010','tornadoDrillsCompleted':'D7-012',
+  'tornadoDrillLog':'D7-013','shelterAreaIdentified':'D7-014','lastLockdownDate':'D7-016',
+  'lockdownDrillsCompleted':'D7-018','lockdownDrillLog':'D7-019','lockdownProcComm':'D7-020',
+  'emergPlanOnFile':'D7-021','emergPlanReviewed':'D7-022','emergPlanComm':'D7-023',
+  'emergContactListCurrent':'D7-024','emergPlanFamilies':'D7-025','relocationSite':'D7-026',
+  'healthInspCurrent':'D7-027','healthInspDate':'D7-028','healthInspResult':'D7-029',
+  'healthInspReportOnFile':'D7-030','openHealthViolations':'D7-031','allDrillLogsRetained':'D7-032',
+  'drillLogRetentionMet':'D7-033','drillLogInspAccess':'D7-034','electronicDrillLog':'D7-035',
+  'waterSafetyPlan':'D7-036','lifeguardCert':'D7-037','waterActivityPermission':'D7-038',
+  'fireAlarmTested':'D7-039','firstAidKit':'D7-040','firstAidKitContents':'D7-041',
+  'commDeviceAvailable':'D7-042','foodServicePermit':'D7-043','severeWeatherAlert':'D7-044',
+};
 const LS_RUNS_KEY     = '1core_compliance_v6_auditruns';
 
 function loadCAP(centerId) {
@@ -305,7 +385,16 @@ function ItemRow({ item, override, onUpdateOverride, isEditing, onStartEdit, onS
           <div style={{fontSize:10.5,color:'#94a3b8',marginTop:1,maxWidth:90}}>{item.domainLabel}</div>
         </td>
         <td style={{padding:'11px 12px',maxWidth:160}}>
-          <div style={{fontSize:13,fontWeight:600,color:'#1e293b'}}>{item.field}</div>
+          <div style={{fontSize:13,fontWeight:600,color:'#1e293b',display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+            {item.field}
+            {item.fieldId && FIELD_NUMS[item.fieldId] && (
+              <span style={{fontSize:10,fontWeight:600,color:'#94a3b8',background:'#f1f5f9',
+                border:'1px solid #e2e8f0',borderRadius:4,padding:'1px 5px',
+                letterSpacing:'0.04em',flexShrink:0}}>
+                {FIELD_NUMS[item.fieldId]}
+              </span>
+            )}
+          </div>
           {item.notes&&<div style={{fontSize:11.5,color:'#64748b',marginTop:2,fontStyle:'italic'}}>{item.notes}</div>}
         </td>
         <td style={{padding:'11px 12px',whiteSpace:'nowrap'}}>

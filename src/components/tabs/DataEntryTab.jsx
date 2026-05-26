@@ -242,6 +242,87 @@ function YesNo({ value, onChange, opts = ['Yes','No','N/A'] }) {
   );
 }
 
+// ── Canonical fieldNum lookup (dataKey → D#-### badge) ──────────────────────
+const FIELD_NUMS = {
+  'licenseNumber':'D1-001','licenseExpiry':'D1-002','licensedCapacity':'D4-007',
+  'licenseCertOnFile':'D1-004','licenseClass':'D1-005','facilityNumber':'D1-006',
+  'licenseRenewalDate':'D1-007','glInsuranceProvider':'D1-008','glPolicyNumber':'D1-009',
+  'glExpiry':'D1-010','glCoverageAmount':'D1-011','coiOnFile':'D1-012',
+  'workersCompCurrent':'D1-013','workersCompExpiry':'D1-014','propertyInsurance':'D1-015',
+  'lastInspectionDate':'D1-016','lastInspectionResult':'D1-017','inspectionReportOnFile':'D1-018',
+  'openViolationsCount':'D1-019','prevInspectionDate':'D1-020','complaintInspections':'D1-021',
+  'qrisEnrolled':'D1-022','qrisRating':'D1-023','qrisRenewalDate':'D1-024','postedNotices':'D1-035',
+  'indoorSqFtTotal':'D2-001','roomCapacityPosted':'D2-009','floorPlanOnFile':'D2-010',
+  'hotWaterTemp':'D2-011','toiletCount':'D2-014','sinkCount':'D2-017','drinkingWater':'D2-018',
+  'coDetectors':'D2-019','coDetectorTestDate':'D2-020','smokeDetectors':'D2-021',
+  'smokeDetectorTestDate':'D2-022','fireExtinguishers':'D2-023','fireExtInspDate':'D2-024',
+  'emergencyLighting':'D2-025','exitSigns':'D2-026','fencingHeight':'D2-027',
+  'gateSelfLatching':'D2-030','shadeAvailable':'D2-031','resilientSurfacing':'D2-032',
+  'equipmentAgeAppropriate':'D2-033','spacePolicyOnFile':'D2-034','hazMatStorage':'D2-035',
+  'chokeHazardPolicy':'D2-036','sharpToolPolicy':'D2-037','facilityInspCurrent':'D2-038',
+  'fireDeptInspDate':'D2-039','healthDeptInspDate':'D2-040','adaCompliant':'D2-041',
+  'directorName':'D3-001','directorEducation':'D3-002','directorECECredits':'D3-003',
+  'directorExperience':'D3-004','directorQualPathway':'D3-005','directorCredential':'D3-006',
+  'directorCredExpiry':'D3-007','leadTeacherQualMet':'D3-010','leadTeacherEducation':'D3-011',
+  'leadTeacherOrientation':'D3-012','aideAgeReq':'D3-015','aideOrientation':'D3-016',
+  'bgCheckComplete':'D3-017','stateBgCheckDate':'D3-018','fbiBgCheckDate':'D3-019',
+  'caRegistryCheck':'D3-020','preEmpAffidavit':'D3-023','workforceRegistryEnrolled':'D3-024',
+  'registryProfileId':'D3-025','registryTrainingCurrent':'D3-027','overallRatioCompliant':'D3-029',
+  'volunteerBgPolicy':'D3-030','directorOnDutyPolicy':'D3-031','ltCPRCurrent':'D3-032',
+  'aideSuperPolicy':'D3-033','asstDirQualified':'D3-034','totalStaffCount':'D3-028',
+  'leadTeacherCount':'D3-009','aideCount':'D3-014',
+  'infantEnrollment':'D4-001','youngToddlerEnrollment':'D4-002','olderToddlerEnrollment':'D4-003',
+  'preschoolEnrollment':'D4-004','schoolAgeEnrollment':'D4-005','totalEnrollment':'D4-006',
+  'infantStaffCount':'D4-009','toddlerStaffCount':'D4-013','preschoolStaffCount':'D4-017',
+  'schoolAgeStaffCount':'D4-021','infantGroupSize':'D4-025','toddlerGroupSize':'D4-026',
+  'preschoolGroupSize':'D4-027','schoolAgeGroupSize':'D4-028','mixedAgeGroup':'D4-029',
+  'naptimeRatioAdj':'D4-030','signInLogMaintained':'D4-031','signInLogRetention':'D4-032',
+  'minStaffOnDuty':'D4-034','qualDirOnDuty':'D4-035','cprStaffOnDuty':'D4-036',
+  'staffScheduleOnFile':'D4-037','openCloseRatioCompliant':'D4-038','subStaffPolicy':'D4-039',
+  'authorizedPickupCurrent':'D4-033',
+  'staffPhysicalOnFile':'D5-001','staffPhysicalDate':'D5-002','physicalRenewalDate':'D5-004',
+  'staffHealthStatement':'D5-005','commDiseasePol':'D5-006','tbScreeningComplete':'D5-007',
+  'tbTestDate':'D5-008','tbTestResult':'D5-009','tbRenewalDate':'D5-011',
+  'cprCertOnFile':'D5-012','cprCertDate':'D5-013','cprExpiry':'D5-014','cprCertType':'D5-016',
+  'firstAidCurrent':'D5-017','cprStaffCount':'D5-018','mrTrainingComplete':'D5-019',
+  'mrTrainingDate':'D5-020','mrRenewalDate':'D5-022','abuseReportingPosted':'D5-023',
+  'annualTrainingHrs':'D5-024','trainingLogOnFile':'D5-026','trainingTopicsDocs':'D5-027',
+  'directorLedTraining':'D5-028','safeSleepTraining':'D5-029','standardPrecautions':'D5-030',
+  'childAbuseTraining':'D5-031','orientationComplete':'D5-032','orientationHours':'D5-033',
+  'orientationDate':'D5-034','emergPrepTraining':'D5-035','foodProtMgr':'D5-036',
+  'illnessExclusionPosted':'D5-037','staffIllnessExclusion':'D5-038','staffVaccinationRecs':'D5-039',
+  'aedOnPremises':'D5-040','qrisTrainingMet':'D5-041','volunteerOrientation':'D5-042',
+  'hotlinePosted':'D5-043',
+  'childName':'D6-001','childDOB':'D6-002','enrollmentDate':'D6-003','withdrawalDate':'D6-004',
+  'enrollRecordComplete':'D6-005','custodyOrdersOnFile':'D6-009','emergContactCount':'D6-007',
+  'emergContactsOnFile':'D6-008','authPickupOnFile':'D6-011','allergyCareplan':'D6-012',
+  'allergyDocOnFile':'D6-010','epiPenOnSite':'D6-013','foodAllergyPolicy':'D6-014',
+  'allergyListInKitchen':'D6-015','medAdminPolicy':'D6-016','medAuthOnFile':'D6-017',
+  'medLogMaintained':'D6-018','medsStoredCorrectly':'D6-019','rxOnFile':'D6-020',
+  'childPhysicalOnFile':'D6-021','childPhysicalDate':'D6-022','visionHearingScreen':'D6-023',
+  'leadTestingDoc':'D6-024','immRecordsOnFile':'D6-025','immRecordsCurrent':'D6-026',
+  'immExemptionType':'D6-027','immExemptionDoc':'D6-028','annualImmReporting':'D6-029',
+  'writtenPoliciesAck':'D6-031','photoReleaseSign':'D6-032','fieldTripPermission':'D6-033',
+  'transportPermission':'D6-034','grievanceProcedure':'D6-035','safeSleepPolicy':'D6-036',
+  'safeSleepCommun':'D6-037','infantSleepEnv':'D6-038','safeSleepStaffTrain':'D6-039',
+  'infantSleepException':'D6-040','careLogMaintained':'D6-041','physicianContact':'D6-042',
+  'specialCareNeedsPlan':'D6-043','recordRetentionMet':'D6-044','familyMeetingDocs':'D6-047',
+  'attendanceSignInLog':'D6-049','incidentReportLog':'D6-051','parentAgreementSigned':'D6-010',
+  'fireEvacPlan':'D7-001','fireEvacPosted':'D7-002','lastFireDrillDate':'D7-003',
+  'fireDrillsCompleted':'D7-005','fireDrillLog':'D7-006','fireSafetyTraining':'D7-007',
+  'fireDeptInspCurrent':'D7-008','lastTornadoDrillDate':'D7-010','tornadoDrillsCompleted':'D7-012',
+  'tornadoDrillLog':'D7-013','shelterAreaIdentified':'D7-014','lastLockdownDate':'D7-016',
+  'lockdownDrillsCompleted':'D7-018','lockdownDrillLog':'D7-019','lockdownProcComm':'D7-020',
+  'emergPlanOnFile':'D7-021','emergPlanReviewed':'D7-022','emergPlanComm':'D7-023',
+  'emergContactListCurrent':'D7-024','emergPlanFamilies':'D7-025','relocationSite':'D7-026',
+  'healthInspCurrent':'D7-027','healthInspDate':'D7-028','healthInspResult':'D7-029',
+  'healthInspReportOnFile':'D7-030','openHealthViolations':'D7-031','allDrillLogsRetained':'D7-032',
+  'drillLogRetentionMet':'D7-033','drillLogInspAccess':'D7-034','electronicDrillLog':'D7-035',
+  'waterSafetyPlan':'D7-036','lifeguardCert':'D7-037','waterActivityPermission':'D7-038',
+  'fireAlarmTested':'D7-039','firstAidKit':'D7-040','firstAidKitContents':'D7-041',
+  'commDeviceAvailable':'D7-042','foodServicePermit':'D7-043','severeWeatherAlert':'D7-044',
+};
+
 function Chip({ text }) {
   return <span className="state-chip">{text}</span>;
 }
@@ -272,14 +353,22 @@ function Section({ title, sub, children }) {
 }
 
 function Field({ label, hint, children, chip, required, fieldKey }) {
+  const fieldNum = fieldKey ? FIELD_NUMS[fieldKey] : null;
   return (
     <div className="field" id={fieldKey ? `field-${fieldKey}` : undefined}>
       <label>
         {required && <span style={{ color:'#b91c1c', marginRight:3 }}>*</span>}
         {label}{chip && <Chip text={chip}/>}
+        {fieldNum && (
+          <span style={{ marginLeft:6, fontSize:10, fontWeight:600, color:'#94a3b8',
+            background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:4,
+            padding:'1px 5px', letterSpacing:'0.04em', verticalAlign:'middle' }}>
+            {fieldNum}
+          </span>
+        )}
       </label>
       {children}
-      {hint && <span className="hint" style={{ color: hint.color || '#94a3b8' }}>{hint.text}</span>}
+      {hint && <span className="hint" style={{ color: hint.color || '#94a3b8' }}>{hint.text || hint}</span>}
     </div>
   );
 }
@@ -577,13 +666,13 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="License expiry date" required hint={expiryHint(liveData.licenseExpiry)} fieldKey="licenseExpiry">
               <input type="date" value={liveData.licenseExpiry || ''} onChange={e => set('licenseExpiry', e.target.value)} />
             </Field>
-            <Field label="License renewal date">
+            <Field label="License renewal date" fieldKey="licenseRenewalDate">
               <input type="date" value={liveData.licenseRenewalDate || ''} onChange={e => set('licenseRenewalDate', e.target.value)} />
             </Field>
             <Field label="Licensed capacity (max children)" required fieldKey="licensedCapacity">
               <input type="number" min="0" value={liveData.licensedCapacity || ''} onChange={e => set('licensedCapacity', e.target.value)} />
             </Field>
-            <Field label="Facility / permit number">
+            <Field label="Facility / permit number" fieldKey="facilityNumber">
               <input placeholder="State-assigned facility number" value={liveData.facilityNumber || ''} onChange={e => set('facilityNumber', e.target.value)} />
             </Field>
             <Field label="License certificate on file" required fieldKey="licenseCertOnFile">
@@ -597,28 +686,28 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
           </Section>
 
           <Section title="Insurance">
-            <Field label="GL insurance carrier name">
+            <Field label="GL insurance carrier name" fieldKey="glInsuranceProvider">
               <input placeholder="e.g. Philadelphia Indemnity" value={liveData.glInsuranceProvider || ''} onChange={e => set('glInsuranceProvider', e.target.value)} />
             </Field>
-            <Field label="GL policy number" required>
+            <Field label="GL policy number" required fieldKey="glPolicyNumber">
               <input placeholder="Policy #" value={liveData.glPolicyNumber || ''} onChange={e => set('glPolicyNumber', e.target.value)} />
             </Field>
-            <Field label="GL coverage amount">
+            <Field label="GL coverage amount" fieldKey="glCoverageAmount">
               <input placeholder="e.g. $1,000,000" value={liveData.glCoverageAmount || ''} onChange={e => set('glCoverageAmount', e.target.value)} />
             </Field>
             <Field label="GL coverage expiry" required hint={expiryHint(liveData.glExpiry)} fieldKey="glExpiry">
               <input type="date" value={liveData.glExpiry || ''} onChange={e => set('glExpiry', e.target.value)} />
             </Field>
-            <Field label="Workers' comp expiry" hint={expiryHint(liveData.workersCompExpiry)}>
+            <Field label="Workers' comp expiry" hint={expiryHint(liveData.workersCompExpiry)} fieldKey="workersCompExpiry">
               <input type="date" value={liveData.workersCompExpiry || ''} onChange={e => set('workersCompExpiry', e.target.value)} />
             </Field>
             <Field label="Workers' comp current" required fieldKey="workersCompCurrent">
               <YesNo value={liveData.workersCompCurrent || ''} onChange={v => set('workersCompCurrent', v)} />
             </Field>
-            <Field label="Certificate of Insurance (COI) current">
+            <Field label="Certificate of Insurance (COI) current" fieldKey="coiOnFile">
               <YesNo value={liveData.coiOnFile || ''} onChange={v => set('coiOnFile', v)} />
             </Field>
-            <Field label="Property insurance on file">
+            <Field label="Property insurance on file" fieldKey="propertyInsurance">
               <YesNo value={liveData.propertyInsurance || ''} onChange={v => set('propertyInsurance', v)} />
             </Field>
             <UploadRow fieldKey="gl_coi" centerId={centerId} label="Certificate of Insurance (COI)" hint="Upload current Certificate of Insurance · PDF · Max 5 MB" />
@@ -640,13 +729,13 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <input type="number" min="0" value={liveData.openViolationsCount || ''} onChange={e => set('openViolationsCount', e.target.value)} />
             </Field>
             <NoteField fieldKey="openViolationsCount" centerId={centerId} />
-            <Field label="Previous inspection date">
+            <Field label="Previous inspection date" fieldKey="prevInspectionDate">
               <input type="date" value={liveData.prevInspectionDate || ''} onChange={e => set('prevInspectionDate', e.target.value)} />
             </Field>
-            <Field label="Complaint inspections (12 mo)">
+            <Field label="Complaint inspections (12 mo)" fieldKey="complaintInspections">
               <input type="number" min="0" value={liveData.complaintInspections || ''} onChange={e => set('complaintInspections', e.target.value)} />
             </Field>
-            <Field label="Licensing inspection report on file" required>
+            <Field label="Licensing inspection report on file" required fieldKey="inspectionReportOnFile">
               <YesNo value={liveData.inspectionReportOnFile || ''} onChange={v => set('inspectionReportOnFile', v)} />
             </Field>
             <UploadRow fieldKey="inspection_report" centerId={centerId} label="Licensing inspection report" hint="Upload most recent state licensing inspection report · PDF · Max 5 MB" />
@@ -656,13 +745,13 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="QRIS enrolled" chip={`${state}: ${rules.qrisName || 'QRIS'}`} fieldKey="qrisStatus">
               <YesNo value={liveData.qrisEnrolled || ''} onChange={v => set('qrisEnrolled', v)} opts={['Yes','No','In progress']} />
             </Field>
-            <Field label="QRIS current rating / level">
+            <Field label="QRIS current rating / level" fieldKey="qrisRating">
               <select value={liveData.qrisRating || ''} onChange={e => set('qrisRating', e.target.value)}>
                 <option value="">Select...</option>
                 {['Not enrolled','1 star','2 stars','3 stars','4 stars','5 stars','Level 1','Level 2','Level 3','Level 4'].map(o => <option key={o}>{o}</option>)}
               </select>
             </Field>
-            <Field label="QRIS expiry / renewal date" hint={expiryHint(liveData.qrisRenewalDate)}>
+            <Field label="QRIS expiry / renewal date" hint={expiryHint(liveData.qrisRenewalDate)} fieldKey="qrisRenewalDate">
               <input type="date" value={liveData.qrisRenewalDate || ''} onChange={e => set('qrisRenewalDate', e.target.value)} />
             </Field>
             <RegInfoRow label="QRIS participation type" fieldNum="D1-032" value={reg.qrisType || rules.qrisName || ''} hint="From state regulation data" />
@@ -722,10 +811,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               value={liveData.outdoorSqFtTotal && liveData.licensedCapacity
                 ? (parseFloat(liveData.outdoorSqFtTotal)/parseFloat(liveData.licensedCapacity) >= (reg.outdoorSqft||75) ? 'Yes — compliant' : 'No — below minimum')
                 : ''} />
-            <Field label="Room capacity sign posted">
+            <Field label="Room capacity sign posted" fieldKey="roomCapacityPosted">
               <YesNo value={liveData.roomCapacityPosted || ''} onChange={v => set('roomCapacityPosted', v)} />
             </Field>
-            <Field label="Floor plan on file">
+            <Field label="Floor plan on file" fieldKey="floorPlanOnFile">
               <YesNo value={liveData.floorPlanOnFile || ''} onChange={v => set('floorPlanOnFile', v)} />
             </Field>
             <UploadRow fieldKey="room_capacity_photo" centerId={centerId} label="Room capacity sign photo" hint="Photo of posted capacity sign in each room · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
@@ -765,13 +854,13 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <input type="number" step="0.5" placeholder="e.g. 5" value={liveData.fencingHeight || ''} onChange={e => set('fencingHeight', e.target.value)} />
             </Field>
             <RegInfoRow label="State fencing minimum (ft)" fieldNum="D2-028" value={rules.minFencingHeight ? `${rules.minFencingHeight} ft` : ''} />
-            <Field label="Gate self-latching">
+            <Field label="Gate self-latching" fieldKey="gateSelfLatching">
               <YesNo value={liveData.gateSelfLatching || ''} onChange={v => set('gateSelfLatching', v)} />
             </Field>
-            <Field label="Shade available outdoors">
+            <Field label="Shade available outdoors" fieldKey="shadeAvailable">
               <YesNo value={liveData.shadeAvailable || ''} onChange={v => set('shadeAvailable', v)} />
             </Field>
-            <Field label="Resilient surfacing under equipment">
+            <Field label="Resilient surfacing under equipment" fieldKey="resilientSurfacing">
               <YesNo value={liveData.resilientSurfacing || ''} onChange={v => set('resilientSurfacing', v)} />
             </Field>
             <Field label="Equipment age-appropriate and in good repair" fieldKey="equipmentAgeAppropriate">
@@ -785,16 +874,16 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Hazardous materials stored safely" required fieldKey="hazMatStorage">
               <YesNo value={liveData.hazMatStorage || ''} onChange={v => set('hazMatStorage', v)} />
             </Field>
-            <Field label="Choke hazard policy (under 3)">
+            <Field label="Choke hazard policy (under 3)" fieldKey="chokeHazardPolicy">
               <YesNo value={liveData.chokeHazardPolicy || ''} onChange={v => set('chokeHazardPolicy', v)} />
             </Field>
-            <Field label="Sharp tool storage policy">
+            <Field label="Sharp tool storage policy" fieldKey="sharpToolPolicy">
               <YesNo value={liveData.sharpToolPolicy || ''} onChange={v => set('sharpToolPolicy', v)} />
             </Field>
-            <Field label="Written space policy on file">
+            <Field label="Written space policy on file" fieldKey="spacePolicyOnFile">
               <YesNo value={liveData.spacePolicyOnFile || ''} onChange={v => set('spacePolicyOnFile', v)} />
             </Field>
-            <Field label="ADA accessibility compliant">
+            <Field label="ADA accessibility compliant" fieldKey="adaCompliant">
               <YesNo value={liveData.adaCompliant || ''} onChange={v => set('adaCompliant', v)} />
             </Field>
             <NoteField fieldKey="adaCompliant" centerId={centerId} />
@@ -804,34 +893,34 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Smoke detectors installed" required fieldKey="smokeDetectors">
               <YesNo value={liveData.smokeDetectors || ''} onChange={v => set('smokeDetectors', v)} />
             </Field>
-            <Field label="Smoke detector test date">
+            <Field label="Smoke detector test date" fieldKey="smokeDetectorTestDate">
               <input type="date" value={liveData.smokeDetectorTestDate || ''} onChange={e => set('smokeDetectorTestDate', e.target.value)} />
             </Field>
             <Field label="CO detectors installed" required chip={`${state}: Required`} fieldKey="coDetector">
               <YesNo value={liveData.coDetectors || ''} onChange={v => set('coDetectors', v)} opts={['Yes','Partial','No','Not applicable']} />
             </Field>
-            <Field label="CO detector test date" chip="DC: every 6 months">
+            <Field label="CO detector test date" chip="DC: every 6 months" fieldKey="coDetectorTestDate">
               <input type="date" value={liveData.coDetectorTestDate || ''} onChange={e => set('coDetectorTestDate', e.target.value)} />
             </Field>
             <Field label="Fire extinguishers current" required fieldKey="fireExtinguishers">
               <YesNo value={liveData.fireExtinguishers || ''} onChange={v => set('fireExtinguishers', v)} />
             </Field>
-            <Field label="Fire extinguisher inspection date">
+            <Field label="Fire extinguisher inspection date" fieldKey="fireExtInspDate">
               <input type="date" value={liveData.fireExtInspDate || ''} onChange={e => set('fireExtInspDate', e.target.value)} />
             </Field>
             <Field label="Emergency lighting functional" fieldKey="emergencyLighting">
               <YesNo value={liveData.emergencyLighting || ''} onChange={v => set('emergencyLighting', v)} />
             </Field>
-            <Field label="Exit signs posted">
+            <Field label="Exit signs posted" fieldKey="exitSigns">
               <YesNo value={liveData.exitSigns || ''} onChange={v => set('exitSigns', v)} />
             </Field>
-            <Field label="Facility inspection current" required>
+            <Field label="Facility inspection current" required fieldKey="facilityInspCurrent">
               <YesNo value={liveData.facilityInspCurrent || ''} onChange={v => set('facilityInspCurrent', v)} />
             </Field>
-            <Field label="Fire department inspection date">
+            <Field label="Fire department inspection date" fieldKey="fireDeptInspDate">
               <input type="date" value={liveData.fireDeptInspDate || ''} onChange={e => set('fireDeptInspDate', e.target.value)} />
             </Field>
-            <Field label="Health department inspection date">
+            <Field label="Health department inspection date" fieldKey="healthDeptInspDate">
               <input type="date" value={liveData.healthDeptInspDate || ''} onChange={e => set('healthDeptInspDate', e.target.value)} />
             </Field>
             <UploadRow fieldKey="fire_ext_tag_photo" centerId={centerId} label="Fire extinguisher inspection tag photo" hint="Photo of fire extinguisher inspection tag · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
@@ -869,7 +958,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
           </Section>
 
           <Section title="Director Qualifications">
-            <Field label="Director full name" required>
+            <Field label="Director full name" required fieldKey="directorName">
               <input placeholder="Full legal name" value={liveData.directorName || ''} onChange={e => set('directorName', e.target.value)} />
             </Field>
             <Field label="Director education level" required fieldKey="directorEducation">
@@ -878,10 +967,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
                 {['High school diploma / GED','CDA credential',"Associate's — ECE or child development","Bachelor's — ECE or child development","Bachelor's — related field","Master's degree or higher"].map(o => <option key={o}>{o}</option>)}
               </select>
             </Field>
-            <Field label="Director ECE credit hours">
+            <Field label="Director ECE credit hours" fieldKey="directorECECredits">
               <input type="number" min="0" placeholder="e.g. 18" value={liveData.directorECECredits || ''} onChange={e => set('directorECECredits', e.target.value)} />
             </Field>
-            <Field label="Director years experience" required>
+            <Field label="Director years experience" required fieldKey="directorExperience">
               <input type="number" min="0" step="0.5" value={liveData.directorExperience || ''} onChange={e => set('directorExperience', e.target.value)} />
             </Field>
             <Field label="Director qualification pathway" required fieldKey="directorQualPathway">
@@ -891,16 +980,16 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               </select>
             </Field>
             <NoteField fieldKey="directorQualPathway" centerId={centerId} />
-            <Field label="Director credential name">
+            <Field label="Director credential name" fieldKey="directorCredential">
               <input placeholder="e.g. FL Director Credential" value={liveData.directorCredential || ''} onChange={e => set('directorCredential', e.target.value)} />
             </Field>
-            <Field label="Director credential expiry" hint={expiryHint(liveData.directorCredExpiry)}>
+            <Field label="Director credential expiry" hint={expiryHint(liveData.directorCredExpiry)} fieldKey="directorCredExpiry">
               <input type="date" value={liveData.directorCredExpiry || ''} onChange={e => set('directorCredExpiry', e.target.value)} />
             </Field>
             <Field label="Director on duty policy on file" fieldKey="directorOnDutyPolicy">
               <YesNo value={liveData.directorOnDutyPolicy || ''} onChange={v => set('directorOnDutyPolicy', v)} />
             </Field>
-            <Field label="Assistant director qualified">
+            <Field label="Assistant director qualified" fieldKey="asstDirQualified">
               <YesNo value={liveData.asstDirQualified || ''} onChange={v => set('asstDirQualified', v)} opts={['Yes','No','Not applicable']} />
             </Field>
           </Section>
@@ -909,16 +998,16 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Lead teacher qualification met" required fieldKey="leadTeacherQualMet">
               <YesNo value={liveData.leadTeacherQualMet || ''} onChange={v => set('leadTeacherQualMet', v)} />
             </Field>
-            <Field label="Lead teacher education level">
+            <Field label="Lead teacher education level" fieldKey="leadTeacherEducation">
               <select value={liveData.leadTeacherEducation || ''} onChange={e => set('leadTeacherEducation', e.target.value)}>
                 <option value="">Select...</option>
                 {['High school diploma / GED','CDA credential','AA/BA in ECE','12+ ECE credit hours','HS diploma + orientation'].map(o => <option key={o}>{o}</option>)}
               </select>
             </Field>
-            <Field label="Lead teacher orientation complete">
+            <Field label="Lead teacher orientation complete" fieldKey="leadTeacherOrientation">
               <YesNo value={liveData.leadTeacherOrientation || ''} onChange={v => set('leadTeacherOrientation', v)} />
             </Field>
-            <Field label="Lead teacher CPR current">
+            <Field label="Lead teacher CPR current" fieldKey="ltCPRCurrent">
               <YesNo value={liveData.ltCPRCurrent || ''} onChange={v => set('ltCPRCurrent', v)} />
             </Field>
           </Section>
@@ -927,10 +1016,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Aide age requirement met (18+)" required fieldKey="aideAgeReq">
               <YesNo value={liveData.aideAgeReq || ''} onChange={v => set('aideAgeReq', v)} />
             </Field>
-            <Field label="Aide orientation complete">
+            <Field label="Aide orientation complete" fieldKey="aideOrientation">
               <YesNo value={liveData.aideOrientation || ''} onChange={v => set('aideOrientation', v)} />
             </Field>
-            <Field label="Aide supervision policy on file">
+            <Field label="Aide supervision policy on file" fieldKey="aideSuperPolicy">
               <YesNo value={liveData.aideSuperPolicy || ''} onChange={v => set('aideSuperPolicy', v)} />
             </Field>
           </Section>
@@ -940,16 +1029,16 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.bgCheckComplete || ''} onChange={v => set('bgCheckComplete', v)} />
             </Field>
             <NoteField fieldKey="bgCheckComplete" centerId={centerId} />
-            <Field label="State BG check clearance date" required>
+            <Field label="State BG check clearance date" required fieldKey="stateBgCheckDate">
               <input type="date" value={liveData.stateBgCheckDate || ''} onChange={e => set('stateBgCheckDate', e.target.value)} />
             </Field>
-            <Field label="FBI fingerprint clearance date" required>
+            <Field label="FBI fingerprint clearance date" required fieldKey="fbiBgCheckDate">
               <input type="date" value={liveData.fbiBgCheckDate || ''} onChange={e => set('fbiBgCheckDate', e.target.value)} />
             </Field>
-            <Field label="Child abuse registry check" required>
+            <Field label="Child abuse registry check" required fieldKey="caRegistryCheck">
               <YesNo value={liveData.caRegistryCheck || ''} onChange={v => set('caRegistryCheck', v)} />
             </Field>
-            <Field label="Pre-employment affidavit on file">
+            <Field label="Pre-employment affidavit on file" fieldKey="preEmpAffidavit">
               <YesNo value={liveData.preEmpAffidavit || ''} onChange={v => set('preEmpAffidavit', v)} />
             </Field>
             <Field label="Volunteer BG check policy" fieldKey="volunteerBgPolicy">
@@ -959,13 +1048,13 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
           </Section>
 
           <Section title="Workforce Registry" sub={rules.workforceRegistry || ''}>
-            <Field label="Workforce registry enrolled">
+            <Field label="Workforce registry enrolled" fieldKey="workforceRegistryEnrolled">
               <YesNo value={liveData.workforceRegistryEnrolled || ''} onChange={v => set('workforceRegistryEnrolled', v)} opts={['Yes','No','Not required']} />
             </Field>
-            <Field label="Registry profile ID">
+            <Field label="Registry profile ID" fieldKey="registryProfileId">
               <input placeholder="Registry ID number" value={liveData.registryProfileId || ''} onChange={e => set('registryProfileId', e.target.value)} />
             </Field>
-            <Field label="Registry training hours current">
+            <Field label="Registry training hours current" fieldKey="registryTrainingCurrent">
               <YesNo value={liveData.registryTrainingCurrent || ''} onChange={v => set('registryTrainingCurrent', v)} />
             </Field>
           </Section>
@@ -977,26 +1066,26 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Staff physical exam on file — all staff" required fieldKey="staffPhysicalOnFile">
               <YesNo value={liveData.staffPhysicalOnFile || ''} onChange={v => set('staffPhysicalOnFile', v)} />
             </Field>
-            <Field label="Most recent staff physical date">
+            <Field label="Most recent staff physical date" fieldKey="staffPhysicalDate">
               <input type="date" value={liveData.staffPhysicalDate || ''} onChange={e => set('staffPhysicalDate', e.target.value)} />
             </Field>
-            <Field label="Physical renewal date (DC/state)" chip="DC: annual renewal required">
+            <Field label="Physical renewal date (DC/state)" chip="DC: annual renewal required" fieldKey="physicalRenewalDate">
               <input type="date" value={liveData.physicalRenewalDate || ''} onChange={e => set('physicalRenewalDate', e.target.value)} />
             </Field>
             <RegInfoRow label="Physical exam renewal required (state)" fieldNum="D5-003" value={reg.rules?.physicalRenewal || rules.physicalRenewal || ''} hint="From state regulation" />
-            <Field label="Staff health statement current" chip="CO: annual self-report required">
+            <Field label="Staff health statement current" chip="CO: annual self-report required" fieldKey="staffHealthStatement">
               <YesNo value={liveData.staffHealthStatement || ''} onChange={v => set('staffHealthStatement', v)} opts={['Yes','No','Not required']} />
             </Field>
-            <Field label="Communicable disease policy on file">
+            <Field label="Communicable disease policy on file" fieldKey="commDiseasePol">
               <YesNo value={liveData.commDiseasePol || ''} onChange={v => set('commDiseasePol', v)} />
             </Field>
-            <Field label="Illness exclusion policy posted">
+            <Field label="Illness exclusion policy posted" fieldKey="illnessExclusionPosted">
               <YesNo value={liveData.illnessExclusionPosted || ''} onChange={v => set('illnessExclusionPosted', v)} />
             </Field>
-            <Field label="Staff illness exclusion followed">
+            <Field label="Staff illness exclusion followed" fieldKey="staffIllnessExclusion">
               <YesNo value={liveData.staffIllnessExclusion || ''} onChange={v => set('staffIllnessExclusion', v)} />
             </Field>
-            <Field label="Staff vaccination records on file">
+            <Field label="Staff vaccination records on file" fieldKey="staffVaccinationRecs">
               <YesNo value={liveData.staffVaccinationRecs || ''} onChange={v => set('staffVaccinationRecs', v)} opts={['Yes','No','Not required']} />
             </Field>
             <UploadRow fieldKey="illness_exclusion_posted_photo" centerId={centerId} label="Illness exclusion policy posted (photo)" hint="Photo of illness exclusion policy posted for parent and staff viewing · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
@@ -1006,16 +1095,16 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="TB screening complete — all staff" required fieldKey="tbScreening">
               <YesNo value={liveData.tbScreeningComplete || ''} onChange={v => set('tbScreeningComplete', v)} />
             </Field>
-            <Field label="Most recent TB test date" required>
+            <Field label="Most recent TB test date" required fieldKey="tbTestDate">
               <input type="date" value={liveData.tbTestDate || ''} onChange={e => set('tbTestDate', e.target.value)} />
             </Field>
-            <Field label="TB test result">
+            <Field label="TB test result" fieldKey="tbTestResult">
               <select value={liveData.tbTestResult || ''} onChange={e => set('tbTestResult', e.target.value)}>
                 <option value="">Select...</option>
                 {['Negative','Positive (managed)','Risk assessment only'].map(o => <option key={o}>{o}</option>)}
               </select>
             </Field>
-            <Field label="TB renewal date (if applicable)" hint={expiryHint(liveData.tbRenewalDate)}>
+            <Field label="TB renewal date (if applicable)" hint={expiryHint(liveData.tbRenewalDate)} fieldKey="tbRenewalDate">
               <input type="date" value={liveData.tbRenewalDate || ''} onChange={e => set('tbRenewalDate', e.target.value)} />
             </Field>
             <RegInfoRow label="TB renewal required (state)" fieldNum="D5-010" value={rules.tbTestReq || ''} hint="From state regulation" />
@@ -1025,29 +1114,29 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="CPR certification on file — required staff" required fieldKey="cprCertOnFile">
               <YesNo value={liveData.cprCertOnFile || ''} onChange={v => set('cprCertOnFile', v)} />
             </Field>
-            <Field label="CPR certification type">
+            <Field label="CPR certification type" fieldKey="cprCertType">
               <select value={liveData.cprCertType || ''} onChange={e => set('cprCertType', e.target.value)}>
                 <option value="">Select...</option>
                 {['Pediatric CPR + AED + First Aid','Adult + Pediatric CPR + First Aid','BLS','CPR only'].map(o => <option key={o}>{o}</option>)}
               </select>
             </Field>
-            <Field label="CPR certification date">
+            <Field label="CPR certification date" fieldKey="cprCertDate">
               <input type="date" value={liveData.cprCertDate || ''} onChange={e => set('cprCertDate', e.target.value)} />
             </Field>
-            <Field label="CPR expiry date" required hint={expiryHint(liveData.cprExpiry)}>
+            <Field label="CPR expiry date" required hint={expiryHint(liveData.cprExpiry)} fieldKey="cprExpiry">
               <input type="date" value={liveData.cprExpiry || ''} onChange={e => set('cprExpiry', e.target.value)} />
             </Field>
             <RegInfoRow label="CPR renewal period (state)" fieldNum="D5-015" value={rules.cprRenewal || ''} hint="From state regulation" />
-            <Field label="First aid certification current" required>
+            <Field label="First aid certification current" required fieldKey="firstAidCurrent">
               <YesNo value={liveData.firstAidCurrent || ''} onChange={v => set('firstAidCurrent', v)} />
             </Field>
-            <Field label="CPR-certified staff count" required>
+            <Field label="CPR-certified staff count" required fieldKey="cprStaffCount">
               <input type="number" min="0" value={liveData.cprStaffCount || ''} onChange={e => set('cprStaffCount', e.target.value)} />
             </Field>
-            <Field label="Food Protection Manager on site" chip="DC: §155.4 required">
+            <Field label="Food Protection Manager on site" chip="DC: §155.4 required" fieldKey="foodProtMgr">
               <YesNo value={liveData.foodProtMgr || ''} onChange={v => set('foodProtMgr', v)} opts={['Yes','No','Not required']} />
             </Field>
-            <Field label="AED on premises">
+            <Field label="AED on premises" fieldKey="aedOnPremises">
               <YesNo value={liveData.aedOnPremises || ''} onChange={v => set('aedOnPremises', v)} opts={['Yes','No','Not required']} />
             </Field>
             <UploadRow fieldKey="food_prot_mgr_cert" centerId={centerId} label="Food Protection Manager certificate" hint="Upload Food Protection Manager certification (required in DC) · PDF or JPG · Max 5 MB" />
@@ -1060,14 +1149,14 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Mandated reporter training date" fieldKey="mandatedReporter">
               <input type="date" value={liveData.mrTrainingDate || ''} onChange={e => set('mrTrainingDate', e.target.value)} />
             </Field>
-            <Field label="MR renewal date (if applicable)" hint={expiryHint(liveData.mrRenewalDate)}>
+            <Field label="MR renewal date (if applicable)" hint={expiryHint(liveData.mrRenewalDate)} fieldKey="mrRenewalDate">
               <input type="date" value={liveData.mrRenewalDate || ''} onChange={e => set('mrRenewalDate', e.target.value)} />
             </Field>
             <RegInfoRow label="MR renewal required (state)" fieldNum="D5-021" value={rules.mandatedReporterRenewal || ''} hint="From state regulation" />
-            <Field label="Abuse reporting procedure posted">
+            <Field label="Abuse reporting procedure posted" fieldKey="abuseReportingPosted">
               <YesNo value={liveData.abuseReportingPosted || ''} onChange={v => set('abuseReportingPosted', v)} />
             </Field>
-            <Field label="Child abuse hotline number posted">
+            <Field label="Child abuse hotline number posted" fieldKey="hotlinePosted">
               <YesNo value={liveData.hotlinePosted || ''} onChange={v => set('hotlinePosted', v)} />
             </Field>
             <UploadRow fieldKey="abuse_reporting_posted_photo" centerId={centerId} label="Abuse reporting procedure posted (photo)" hint="Photo of child abuse reporting procedure posted visibly in center · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
@@ -1087,10 +1176,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               })()}
             </Field>
             <RegInfoRow label="State training hours minimum" fieldNum="D5-025" value={reg.trainingHrs ? `${reg.trainingHrs} hrs/year` : ''} hint="From state regulation" />
-            <Field label="Training log on file">
+            <Field label="Training log on file" fieldKey="trainingLogOnFile">
               <YesNo value={liveData.trainingLogOnFile || ''} onChange={v => set('trainingLogOnFile', v)} />
             </Field>
-            <Field label="Training topics documented">
+            <Field label="Training topics documented" fieldKey="trainingTopicsDocs">
               <YesNo value={liveData.trainingTopicsDocs || ''} onChange={v => set('trainingTopicsDocs', v)} />
             </Field>
             <NoteField fieldKey="trainingTopicsDocs" centerId={centerId} />
@@ -1100,31 +1189,31 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Safe sleep training — infant staff" chip="CO: annual renewal required" fieldKey="safeSleepTraining">
               <YesNo value={liveData.safeSleepTraining || ''} onChange={v => set('safeSleepTraining', v)} />
             </Field>
-            <Field label="Child abuse recognition training" chip="CO: within 30 days of hire">
+            <Field label="Child abuse recognition training" chip="CO: within 30 days of hire" fieldKey="childAbuseTraining">
               <YesNo value={liveData.childAbuseTraining || ''} onChange={v => set('childAbuseTraining', v)} />
             </Field>
-            <Field label="Director-led training approved" chip="TX: from Aug 2024">
+            <Field label="Director-led training approved" chip="TX: from Aug 2024" fieldKey="directorLedTraining">
               <YesNo value={liveData.directorLedTraining || ''} onChange={v => set('directorLedTraining', v)} opts={['Yes','No','Not applicable']} />
             </Field>
-            <Field label="QRIS training requirements met">
+            <Field label="QRIS training requirements met" fieldKey="qrisTrainingMet">
               <YesNo value={liveData.qrisTrainingMet || ''} onChange={v => set('qrisTrainingMet', v)} opts={['Yes','No','Not applicable']} />
             </Field>
           </Section>
 
           <Section title="Orientation">
-            <Field label="New hire orientation complete — all staff">
+            <Field label="New hire orientation complete — all staff" fieldKey="orientationComplete">
               <YesNo value={liveData.orientationComplete || ''} onChange={v => set('orientationComplete', v)} />
             </Field>
             <Field label="Orientation hours completed" fieldKey="orientationComplete">
               <input type="number" min="0" placeholder="e.g. 8" value={liveData.orientationHours || ''} onChange={e => set('orientationHours', e.target.value)} />
             </Field>
-            <Field label="Orientation completion date">
+            <Field label="Orientation completion date" fieldKey="orientationDate">
               <input type="date" value={liveData.orientationDate || ''} onChange={e => set('orientationDate', e.target.value)} />
             </Field>
-            <Field label="Emergency preparedness training" chip="CO: required before working with children">
+            <Field label="Emergency preparedness training" chip="CO: required before working with children" fieldKey="emergPrepTraining">
               <YesNo value={liveData.emergPrepTraining || ''} onChange={v => set('emergPrepTraining', v)} />
             </Field>
-            <Field label="Volunteer orientation complete">
+            <Field label="Volunteer orientation complete" fieldKey="volunteerOrientation">
               <YesNo value={liveData.volunteerOrientation || ''} onChange={v => set('volunteerOrientation', v)} opts={['Yes','No','Not applicable']} />
             </Field>
           </Section>
@@ -1144,19 +1233,19 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Infant enrollment (0–12 mo)" fieldKey="infantEnrollment">
               <input type="number" min="0" value={liveData.infantEnrollment || ''} onChange={e => set('infantEnrollment', e.target.value)} />
             </Field>
-            <Field label="Young toddler enrollment (12–17 mo)">
+            <Field label="Young toddler enrollment (12–17 mo)" fieldKey="youngToddlerEnrollment">
               <input type="number" min="0" value={liveData.youngToddlerEnrollment || ''} onChange={e => set('youngToddlerEnrollment', e.target.value)} />
             </Field>
-            <Field label="Older toddler enrollment (18–35 mo)">
+            <Field label="Older toddler enrollment (18–35 mo)" fieldKey="olderToddlerEnrollment">
               <input type="number" min="0" value={liveData.olderToddlerEnrollment || ''} onChange={e => set('olderToddlerEnrollment', e.target.value)} />
             </Field>
             <Field label="Preschool enrollment (3–5 yr)" fieldKey="preschoolEnrollment">
               <input type="number" min="0" value={liveData.preschoolEnrollment || ''} onChange={e => set('preschoolEnrollment', e.target.value)} />
             </Field>
-            <Field label="School-age enrollment (K+)">
+            <Field label="School-age enrollment (K+)" fieldKey="schoolAgeEnrollment">
               <input type="number" min="0" value={liveData.schoolAgeEnrollment || ''} onChange={e => set('schoolAgeEnrollment', e.target.value)} />
             </Field>
-            <Field label="Total enrollment">
+            <Field label="Total enrollment" fieldKey="totalEnrollment">
               <input type="number" min="0" value={liveData.totalEnrollment || ''} onChange={e => set('totalEnrollment', e.target.value)} />
             </Field>
             {liveData.totalEnrollment && liveData.licensedCapacity && (
@@ -1194,32 +1283,32 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
           </Section>
 
           <Section title="Group Sizes">
-            <Field label="Infant group size">
+            <Field label="Infant group size" fieldKey="infantGroupSize">
               <input type="number" min="0" value={liveData.infantGroupSize || ''} onChange={e => set('infantGroupSize', e.target.value)} />
             </Field>
-            <Field label="Toddler group size">
+            <Field label="Toddler group size" fieldKey="toddlerGroupSize">
               <input type="number" min="0" value={liveData.toddlerGroupSize || ''} onChange={e => set('toddlerGroupSize', e.target.value)} />
             </Field>
-            <Field label="Preschool group size">
+            <Field label="Preschool group size" fieldKey="preschoolGroupSize">
               <input type="number" min="0" value={liveData.preschoolGroupSize || ''} onChange={e => set('preschoolGroupSize', e.target.value)} />
             </Field>
-            <Field label="School-age group size">
+            <Field label="School-age group size" fieldKey="schoolAgeGroupSize">
               <input type="number" min="0" value={liveData.schoolAgeGroupSize || ''} onChange={e => set('schoolAgeGroupSize', e.target.value)} />
             </Field>
-            <Field label="Mixed-age group present">
+            <Field label="Mixed-age group present" fieldKey="mixedAgeGroup">
               <YesNo value={liveData.mixedAgeGroup || ''} onChange={v => set('mixedAgeGroup', v)} />
             </Field>
             <NoteField fieldKey="mixedAgeGroup" centerId={centerId} />
-            <Field label="Naptime ratio adjustment applied">
+            <Field label="Naptime ratio adjustment applied" fieldKey="naptimeRatioAdj">
               <YesNo value={liveData.naptimeRatioAdj || ''} onChange={v => set('naptimeRatioAdj', v)} opts={['Yes','No','Not applicable']} />
             </Field>
           </Section>
 
           <Section title="Sign-in Logs">
-            <Field label="Daily sign-in/out log maintained" required chip="DC: §130.8(b)">
+            <Field label="Daily sign-in/out log maintained" required chip="DC: §130.8(b)" fieldKey="signInLogMaintained">
               <YesNo value={liveData.signInLogMaintained || ''} onChange={v => set('signInLogMaintained', v)} />
             </Field>
-            <Field label="Sign-in log retention period">
+            <Field label="Sign-in log retention period" fieldKey="signInLogRetention">
               <input placeholder="e.g. 2 years" value={liveData.signInLogRetention || ''} onChange={e => set('signInLogRetention', e.target.value)} />
             </Field>
           </Section>
@@ -1228,7 +1317,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Minimum staff on duty met" required fieldKey="minStaffOnDuty">
               <YesNo value={liveData.minStaffOnDuty || ''} onChange={v => set('minStaffOnDuty', v)} />
             </Field>
-            <Field label="Director or qualified designee on duty">
+            <Field label="Director or qualified designee on duty" fieldKey="qualDirOnDuty">
               <YesNo value={liveData.qualDirOnDuty || ''} onChange={v => set('qualDirOnDuty', v)} />
             </Field>
             <Field label="CPR-certified staff on duty" required fieldKey="cprStaffOnDuty">
@@ -1237,11 +1326,11 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Staff schedule on file" fieldKey="staffScheduleOnFile">
               <YesNo value={liveData.staffScheduleOnFile || ''} onChange={v => set('staffScheduleOnFile', v)} />
             </Field>
-            <Field label="Opening/closing ratio compliance">
+            <Field label="Opening/closing ratio compliance" fieldKey="openCloseRatioCompliant">
               <YesNo value={liveData.openCloseRatioCompliant || ''} onChange={v => set('openCloseRatioCompliant', v)} />
             </Field>
             <NoteField fieldKey="openCloseRatioCompliant" centerId={centerId} />
-            <Field label="Substitute staff policy on file">
+            <Field label="Substitute staff policy on file" fieldKey="subStaffPolicy">
               <YesNo value={liveData.subStaffPolicy || ''} onChange={v => set('subStaffPolicy', v)} />
             </Field>
             <Field label="Authorized pickup list current" required fieldKey="authorizedPickupCurrent">
@@ -1273,20 +1362,20 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.custodyOrdersOnFile || ''} onChange={v => set('custodyOrdersOnFile', v)} opts={['Yes','No','Not applicable']} />
             </Field>
             <RegInfoRow label="State record retention period" fieldNum="D6-045" value={rules.recordRetention ? `${rules.recordRetention} years minimum` : ''} hint="From state regulation" />
-            <Field label="Record retention policy met" chip={`${state}: ${rules.recordRetention || '1–3'} yr min`}>
+            <Field label="Record retention policy met" chip={`${state}: ${rules.recordRetention || '1–3'} yr min`} fieldKey="recordRetentionMet">
               <YesNo value={liveData.recordRetentionMet || ''} onChange={v => set('recordRetentionMet', v)} />
             </Field>
-            <Field label="Incident / accident report log maintained" required>
+            <Field label="Incident / accident report log maintained" required fieldKey="incidentReportLog">
               <YesNo value={liveData.incidentReportLog || ''} onChange={v => set('incidentReportLog', v)} />
             </Field>
             <NoteField fieldKey="incidentReportLog" centerId={centerId} />
-            <Field label="Daily care log maintained">
+            <Field label="Daily care log maintained" fieldKey="careLogMaintained">
               <YesNo value={liveData.careLogMaintained || ''} onChange={v => set('careLogMaintained', v)} />
             </Field>
-            <Field label="Child physician contact on file">
+            <Field label="Child physician contact on file" fieldKey="physicianContact">
               <YesNo value={liveData.physicianContact || ''} onChange={v => set('physicianContact', v)} />
             </Field>
-            <Field label="Special care needs plan on file">
+            <Field label="Special care needs plan on file" fieldKey="specialCareNeedsPlan">
               <YesNo value={liveData.specialCareNeedsPlan || ''} onChange={v => set('specialCareNeedsPlan', v)} opts={['Yes','No','Not applicable']} />
             </Field>
             <Field label="Family meeting documentation on file" fieldKey="familyMeetingDocs">
@@ -1304,7 +1393,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Authorized pickup list on file — all children" required fieldKey="authPickupOnFile">
               <YesNo value={liveData.authPickupOnFile || ''} onChange={v => set('authPickupOnFile', v)} />
             </Field>
-            <Field label="Emergency contact update policy">
+            <Field label="Emergency contact update policy" fieldKey="allergyDocOnFile">
               <YesNo value={liveData.emergContactUpdatePolicy || ''} onChange={v => set('emergContactUpdatePolicy', v)} />
             </Field>
           </Section>
@@ -1316,13 +1405,13 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Allergy care plan on file" required fieldKey="allergyCareplan">
               <YesNo value={liveData.allergyCareplan || ''} onChange={v => set('allergyCareplan', v)} />
             </Field>
-            <Field label="EpiPen / emergency medication on site">
+            <Field label="EpiPen / emergency medication on site" fieldKey="epiPenOnSite">
               <YesNo value={liveData.epiPenOnSite || ''} onChange={v => set('epiPenOnSite', v)} opts={['Yes','No','Not applicable']} />
             </Field>
-            <Field label="Food allergy policy posted">
+            <Field label="Food allergy policy posted" fieldKey="foodAllergyPolicy">
               <YesNo value={liveData.foodAllergyPolicy || ''} onChange={v => set('foodAllergyPolicy', v)} />
             </Field>
-            <Field label="Allergy list posted in kitchen">
+            <Field label="Allergy list posted in kitchen" fieldKey="allergyListInKitchen">
               <YesNo value={liveData.allergyListInKitchen || ''} onChange={v => set('allergyListInKitchen', v)} />
             </Field>
           </Section>
@@ -1331,37 +1420,37 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Medication administration policy on file" fieldKey="medAdminPolicy">
               <YesNo value={liveData.medAdminPolicy || ''} onChange={v => set('medAdminPolicy', v)} />
             </Field>
-            <Field label="Medication authorization on file — all receiving meds" required>
+            <Field label="Medication authorization on file — all receiving meds" required fieldKey="medAuthOnFile">
               <YesNo value={liveData.medAuthOnFile || ''} onChange={v => set('medAuthOnFile', v)} />
             </Field>
-            <Field label="Medication log maintained" required>
+            <Field label="Medication log maintained" required fieldKey="medLogMaintained">
               <YesNo value={liveData.medLogMaintained || ''} onChange={v => set('medLogMaintained', v)} />
             </Field>
-            <Field label="Medications stored correctly — locked & labeled" required>
+            <Field label="Medications stored correctly — locked & labeled" required fieldKey="medsStoredCorrectly">
               <YesNo value={liveData.medsStoredCorrectly || ''} onChange={v => set('medsStoredCorrectly', v)} />
             </Field>
-            <Field label="Prescription on file for Rx medications">
+            <Field label="Prescription on file for Rx medications" fieldKey="rxOnFile">
               <YesNo value={liveData.rxOnFile || ''} onChange={v => set('rxOnFile', v)} opts={['Yes','No','Not applicable']} />
             </Field>
-            <Field label="Non-prescription medication policy">
+            <Field label="Non-prescription medication policy" fieldKey="childPhysicalOnFile">
               <YesNo value={liveData.nonRxMedPolicy || ''} onChange={v => set('nonRxMedPolicy', v)} />
             </Field>
           </Section>
 
           <Section title="Child Physical Exams">
-            <Field label="Child physical exam on file — all children">
+            <Field label="Child physical exam on file — all children" fieldKey="childPhysicalOnFile">
               <YesNo value={liveData.childPhysicalOnFile || ''} onChange={v => set('childPhysicalOnFile', v)} opts={['Yes','No','Not applicable']} />
             </Field>
             <Field label="Developmental screening on file" fieldKey="devScreeningOnFile">
               <YesNo value={liveData.devScreeningOnFile || ''} onChange={v => set('devScreeningOnFile', v)} opts={['Yes','No','Not applicable']}/>
             </Field>
-            <Field label="Most recent child physical date">
+            <Field label="Most recent child physical date" fieldKey="childPhysicalDate">
               <input type="date" value={liveData.childPhysicalDate || ''} onChange={e => set('childPhysicalDate', e.target.value)} />
             </Field>
-            <Field label="Vision and hearing screening">
+            <Field label="Vision and hearing screening" fieldKey="visionHearingScreen">
               <YesNo value={liveData.visionHearingScreen || ''} onChange={v => set('visionHearingScreen', v)} opts={['Yes','No','Not required']} />
             </Field>
-            <Field label="Lead testing documentation" chip="VA: from Jan 2025">
+            <Field label="Lead testing documentation" chip="VA: from Jan 2025" fieldKey="leadTestingDoc">
               <YesNo value={liveData.leadTestingDoc || ''} onChange={v => set('leadTestingDoc', v)} opts={['Yes','No','Not required']} />
             </Field>
           </Section>
@@ -1378,23 +1467,23 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Immunization records on file — all children" required fieldKey="immunizationRecords">
               <YesNo value={liveData.immRecordsOnFile || ''} onChange={v => set('immRecordsOnFile', v)} />
             </Field>
-            <Field label="Immunization records current" required>
+            <Field label="Immunization records current" required fieldKey="immRecordsCurrent">
               <YesNo value={liveData.immRecordsCurrent || ''} onChange={v => set('immRecordsCurrent', v)} />
             </Field>
             <NoteField fieldKey="immRecordsCurrent" centerId={centerId} />
-            <Field label="Immunization exemption type">
+            <Field label="Immunization exemption type" fieldKey="immExemptionType">
               <select value={liveData.immExemptionType || ''} onChange={e => set('immExemptionType', e.target.value)}>
                 <option value="">Select...</option>
                 {['None','Medical','Religious','Philosophical'].map(o => <option key={o}>{o}</option>)}
               </select>
             </Field>
-            <Field label="Exemption documentation on file">
+            <Field label="Exemption documentation on file" fieldKey="immExemptionDoc">
               <YesNo value={liveData.immExemptionDoc || ''} onChange={v => set('immExemptionDoc', v)} opts={['Yes','No','Not applicable']} />
             </Field>
-            <Field label="Annual immunization report submitted to state">
+            <Field label="Annual immunization report submitted to state" fieldKey="annualImmReporting">
               <YesNo value={liveData.annualImmReporting || ''} onChange={v => set('annualImmReporting', v)} opts={['Yes','No','Not required']} />
             </Field>
-            <Field label="Immunization record retention compliant">
+            <Field label="Immunization record retention compliant" fieldKey="safeSleepPolicy">
               <YesNo value={liveData.immRecordRetention || ''} onChange={v => set('immRecordRetention', v)} />
             </Field>
           </Section>
@@ -1403,16 +1492,16 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Safe sleep policy on file" required chip="Required for centers serving infants under 2" fieldKey="safeSleepPolicy">
               <YesNo value={liveData.safeSleepPolicy || ''} onChange={v => set('safeSleepPolicy', v)} opts={['Yes','No','Not applicable']} />
             </Field>
-            <Field label="Safe sleep policy communicated to parents">
+            <Field label="Safe sleep policy communicated to parents" fieldKey="safeSleepCommun">
               <YesNo value={liveData.safeSleepCommun || ''} onChange={v => set('safeSleepCommun', v)} opts={['Yes','No','Not applicable']} />
             </Field>
-            <Field label="Infant sleep environment compliant" required>
+            <Field label="Infant sleep environment compliant" required fieldKey="infantSleepEnv">
               <YesNo value={liveData.infantSleepEnv || ''} onChange={v => set('infantSleepEnv', v)} opts={['Yes','No','Not applicable']} />
             </Field>
-            <Field label="Safe sleep training — all infant room staff" required>
+            <Field label="Safe sleep training — all infant room staff" required fieldKey="safeSleepStaffTrain">
               <YesNo value={liveData.safeSleepStaffTrain || ''} onChange={v => set('safeSleepStaffTrain', v)} opts={['Yes','No','Not applicable']} />
             </Field>
-            <Field label="Infant sleep position exception documented">
+            <Field label="Infant sleep position exception documented" fieldKey="infantSleepException">
               <YesNo value={liveData.infantSleepException || ''} onChange={v => set('infantSleepException', v)} opts={['Yes','No','Not applicable']} />
             </Field>
           </Section>
@@ -1421,19 +1510,19 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Parent / guardian agreement signed — all children" required fieldKey="parentAgreementSigned">
               <YesNo value={liveData.parentAgreementSigned || ''} onChange={v => set('parentAgreementSigned', v)} />
             </Field>
-            <Field label="Written policies acknowledged by parent">
+            <Field label="Written policies acknowledged by parent" fieldKey="writtenPoliciesAck">
               <YesNo value={liveData.writtenPoliciesAck || ''} onChange={v => set('writtenPoliciesAck', v)} />
             </Field>
-            <Field label="Photo / media release signed">
+            <Field label="Photo / media release signed" fieldKey="photoReleaseSign">
               <YesNo value={liveData.photoReleaseSign || ''} onChange={v => set('photoReleaseSign', v)} />
             </Field>
-            <Field label="Field trip permission on file">
+            <Field label="Field trip permission on file" fieldKey="fieldTripPermission">
               <YesNo value={liveData.fieldTripPermission || ''} onChange={v => set('fieldTripPermission', v)} opts={['Yes','No','Not applicable']} />
             </Field>
-            <Field label="Transportation permission on file">
+            <Field label="Transportation permission on file" fieldKey="transportPermission">
               <YesNo value={liveData.transportPermission || ''} onChange={v => set('transportPermission', v)} opts={['Yes','No','Not applicable']} />
             </Field>
-            <Field label="Grievance procedure communicated to families">
+            <Field label="Grievance procedure communicated to families" fieldKey="grievanceProcedure">
               <YesNo value={liveData.grievanceProcedure || ''} onChange={v => set('grievanceProcedure', v)} />
             </Field>
           </Section>
@@ -1464,13 +1553,13 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Fire evacuation plan on file" required fieldKey="fireEvacPlan">
               <YesNo value={liveData.fireEvacPlan || ''} onChange={v => set('fireEvacPlan', v)} />
             </Field>
-            <Field label="Fire evacuation plan posted visibly" required>
+            <Field label="Fire evacuation plan posted visibly" required fieldKey="fireEvacPosted">
               <YesNo value={liveData.fireEvacPosted || ''} onChange={v => set('fireEvacPosted', v)} />
             </Field>
             <Field label="Last fire drill date" required hint={pastDrillHint(liveData.lastFireDrillDate, 35)} fieldKey="lastFireDrillDate">
               <input type="date" value={liveData.lastFireDrillDate || ''} onChange={e => set('lastFireDrillDate', e.target.value)} />
             </Field>
-            <Field label="Fire drills completed (12 mo)" required>
+            <Field label="Fire drills completed (12 mo)" required fieldKey="fireDrillsCompleted">
               <input type="number" min="0" value={liveData.fireDrillsCompleted || ''} onChange={e => set('fireDrillsCompleted', e.target.value)} />
             </Field>
             <Field label="Fire drill log on file" required fieldKey="fire_drill_log">
@@ -1503,16 +1592,16 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
                 <Field label="Last tornado drill date" required hint={pastDrillHint(liveData.lastTornadoDrillDate, rules.tornadoDrill?.includes('Monthly') ? 35 : 200)} fieldKey="lastTornadoDrillDate">
                   <input type="date" value={liveData.lastTornadoDrillDate || ''} onChange={e => set('lastTornadoDrillDate', e.target.value)} />
                 </Field>
-                <Field label="Tornado drills completed (12 mo)">
+                <Field label="Tornado drills completed (12 mo)" fieldKey="tornadoDrillsCompleted">
                   <input type="number" min="0" value={liveData.tornadoDrillsCompleted || ''} onChange={e => set('tornadoDrillsCompleted', e.target.value)} />
                 </Field>
-                <Field label="Tornado drill log on file">
+                <Field label="Tornado drill log on file" fieldKey="tornadoDrillLog">
                   <YesNo value={liveData.tornadoDrillLog || ''} onChange={v => set('tornadoDrillLog', v)} />
                 </Field>
-                <Field label="Designated shelter area identified">
+                <Field label="Designated shelter area identified" fieldKey="shelterAreaIdentified">
                   <YesNo value={liveData.shelterAreaIdentified || ''} onChange={v => set('shelterAreaIdentified', v)} />
                 </Field>
-                <Field label="Severe weather alert system available">
+                <Field label="Severe weather alert system available" fieldKey="severeWeatherAlert">
                   <YesNo value={liveData.severeWeatherAlert || ''} onChange={v => set('severeWeatherAlert', v)} />
                 </Field>
                 <UploadRow fieldKey="tornado_drill_log" centerId={centerId} label="Tornado drill log" hint="Upload tornado drill log with date, time, shelter location, and staff count · PDF or JPG · Max 5 MB" />
@@ -1526,16 +1615,16 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Last lockdown drill date" required fieldKey="lastLockdownDate">
               <input type="date" value={liveData.lastLockdownDate || ''} onChange={e => set('lastLockdownDate', e.target.value)} />
             </Field>
-            <Field label="Lockdown drills completed (12 mo — typically 2)" required>
+            <Field label="Lockdown drills completed (12 mo — typically 2)" required fieldKey="lockdownDrillsCompleted">
               <input type="number" min="0" value={liveData.lockdownDrillsCompleted || ''} onChange={e => set('lockdownDrillsCompleted', e.target.value)} />
             </Field>
-            <Field label="Lockdown drill log on file" required>
+            <Field label="Lockdown drill log on file" required fieldKey="lockdownDrillLog">
               <YesNo value={liveData.lockdownDrillLog || ''} onChange={v => set('lockdownDrillLog', v)} />
             </Field>
-            <Field label="Lockdown procedure communicated to all staff">
+            <Field label="Lockdown procedure communicated to all staff" fieldKey="lockdownProcComm">
               <YesNo value={liveData.lockdownProcComm || ''} onChange={v => set('lockdownProcComm', v)} />
             </Field>
-            <Field label="Communication device available during lockdown">
+            <Field label="Communication device available during lockdown" fieldKey="commDeviceAvailable">
               <YesNo value={liveData.commDeviceAvailable || ''} onChange={v => set('commDeviceAvailable', v)} />
             </Field>
             <UploadRow fieldKey="lockdown_drill_log" centerId={centerId} label="Lockdown drill log" hint="Upload lockdown drill log with date, time, procedures, and staff count · PDF or JPG · Max 5 MB" />
@@ -1545,20 +1634,20 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Written emergency plan on file" required fieldKey="emergencyPlan">
               <YesNo value={liveData.emergPlanOnFile || ''} onChange={v => set('emergPlanOnFile', v)} />
             </Field>
-            <Field label="Emergency plan reviewed annually">
+            <Field label="Emergency plan reviewed annually" fieldKey="emergPlanReviewed">
               <YesNo value={liveData.emergPlanReviewed || ''} onChange={v => set('emergPlanReviewed', v)} />
             </Field>
             <NoteField fieldKey="emergPlanReviewed" centerId={centerId} />
-            <Field label="Emergency plan communicated to staff">
+            <Field label="Emergency plan communicated to staff" fieldKey="emergPlanComm">
               <YesNo value={liveData.emergPlanComm || ''} onChange={v => set('emergPlanComm', v)} />
             </Field>
-            <Field label="Emergency plan communicated to families">
+            <Field label="Emergency plan communicated to families" fieldKey="emergPlanFamilies">
               <YesNo value={liveData.emergPlanFamilies || ''} onChange={v => set('emergPlanFamilies', v)} />
             </Field>
-            <Field label="Emergency contact list current (fire, police, poison control, DSS)">
+            <Field label="Emergency contact list current (fire, police, poison control, DSS)" fieldKey="emergContactListCurrent">
               <YesNo value={liveData.emergContactListCurrent || ''} onChange={v => set('emergContactListCurrent', v)} />
             </Field>
-            <Field label="Off-site relocation meeting point identified">
+            <Field label="Off-site relocation meeting point identified" fieldKey="relocationSite">
               <YesNo value={liveData.relocationSite || ''} onChange={v => set('relocationSite', v)} />
             </Field>
             <Field label="First aid kit accessible — fully stocked" required fieldKey="firstAidKit">
@@ -1576,23 +1665,23 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Health department inspection current" required fieldKey="health_inspection_report">
               <YesNo value={liveData.healthInspCurrent || ''} onChange={v => set('healthInspCurrent', v)} />
             </Field>
-            <Field label="Health inspection date" required>
+            <Field label="Health inspection date" required fieldKey="healthInspDate">
               <input type="date" value={liveData.healthInspDate || ''} onChange={e => set('healthInspDate', e.target.value)} />
             </Field>
-            <Field label="Health inspection result">
+            <Field label="Health inspection result" fieldKey="healthInspResult">
               <select value={liveData.healthInspResult || ''} onChange={e => set('healthInspResult', e.target.value)}>
                 <option value="">Select...</option>
                 {['Pass','Pass with conditions','Fail'].map(o => <option key={o}>{o}</option>)}
               </select>
             </Field>
-            <Field label="Health inspection report on file">
+            <Field label="Health inspection report on file" fieldKey="healthInspReportOnFile">
               <YesNo value={liveData.healthInspReportOnFile || ''} onChange={v => set('healthInspReportOnFile', v)} />
             </Field>
-            <Field label="Open health violations count">
+            <Field label="Open health violations count" fieldKey="openHealthViolations">
               <input type="number" min="0" value={liveData.openHealthViolations || ''} onChange={e => set('openHealthViolations', e.target.value)} />
             </Field>
             <NoteField fieldKey="openHealthViolations" centerId={centerId} />
-            <Field label="Food service permit current">
+            <Field label="Food service permit current" fieldKey="foodServicePermit">
               <YesNo value={liveData.foodServicePermit || ''} onChange={v => set('foodServicePermit', v)} opts={['Yes','No','Not applicable']} />
             </Field>
             <UploadRow fieldKey="health_inspection_report" centerId={centerId} label="Health inspection report" hint="Upload most recent health department inspection report · PDF · Max 5 MB" />
@@ -1600,17 +1689,17 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
           </Section>
 
           <Section title="Drill Log Retention">
-            <Field label="All drill logs retained (fire, tornado, lockdown)" chip="DC: 5 years">
+            <Field label="All drill logs retained (fire, tornado, lockdown)" chip="DC: 5 years" fieldKey="allDrillLogsRetained">
               <YesNo value={liveData.allDrillLogsRetained || ''} onChange={v => set('allDrillLogsRetained', v)} />
             </Field>
             <NoteField fieldKey="allDrillLogsRetained" centerId={centerId} />
-            <Field label="Drill log retention period met">
+            <Field label="Drill log retention period met" fieldKey="drillLogRetentionMet">
               <YesNo value={liveData.drillLogRetentionMet || ''} onChange={v => set('drillLogRetentionMet', v)} />
             </Field>
-            <Field label="Drill logs available for inspector review">
+            <Field label="Drill logs available for inspector review" fieldKey="drillLogInspAccess">
               <YesNo value={liveData.drillLogInspAccess || ''} onChange={v => set('drillLogInspAccess', v)} />
             </Field>
-            <Field label="Electronic drill log in use">
+            <Field label="Electronic drill log in use" fieldKey="electronicDrillLog">
               <YesNo value={liveData.electronicDrillLog || ''} onChange={v => set('electronicDrillLog', v)} opts={['Yes','No']} />
             </Field>
           </Section>
@@ -1619,10 +1708,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Water safety plan on file (if pool / water feature)" fieldKey="waterSafetyPlan">
               <YesNo value={liveData.waterSafetyPlan || ''} onChange={v => set('waterSafetyPlan', v)} opts={['Yes','No','Not applicable']} />
             </Field>
-            <Field label="Lifeguard certification on file">
+            <Field label="Lifeguard certification on file" fieldKey="lifeguardCert">
               <YesNo value={liveData.lifeguardCert || ''} onChange={v => set('lifeguardCert', v)} opts={['Yes','No','Not applicable']} />
             </Field>
-            <Field label="Water activity permission on file — all children">
+            <Field label="Water activity permission on file — all children" fieldKey="waterActivityPermission">
               <YesNo value={liveData.waterActivityPermission || ''} onChange={v => set('waterActivityPermission', v)} opts={['Yes','No','Not applicable']} />
             </Field>
           </Section>
