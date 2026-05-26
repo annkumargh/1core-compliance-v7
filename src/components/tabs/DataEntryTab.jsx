@@ -135,19 +135,6 @@ function CenterFileUpload({ fieldKey, centerId = 'default', label, hint, accept 
   }, [fieldKey, centerId]);
 
   const isImage = stored?.type?.startsWith('image/');
-  const fmtSize = s => s < 1024 * 1024 ? `${Math.round(s / 1024)} KB` : `${(s / 1024 / 1024).toFixed(1)} MB`;
-  const fmtDate = d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-  const noteToggle = (
-    <NoteToggle
-      fieldKey={fieldKey}
-      entityId={centerId}
-      storageLoader={loadCenterNotes}
-      storageSaver={saveCenterNotes}
-    />
-  );
-
-  if (stored) {
     return (
       <div>
         <div style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', border:'1px solid #a7d4ba', borderRadius:8, background:'#eef7f2', marginTop:4 }}>
@@ -163,7 +150,6 @@ function CenterFileUpload({ fieldKey, centerId = 'default', label, hint, accept 
           <button onClick={handleRemove} style={{ padding:'4px 10px', borderRadius:6, border:'1px solid #e8a0a0', background:'#fdf1f1', color:'#b91c1c', fontSize:12, fontWeight:500, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}>Remove</button>
           <input ref={inputRef} type="file" accept={accept} onChange={handleFile} style={{ display:'none' }} />
         </div>
-        {noteToggle}
       </div>
     );
   }
@@ -190,7 +176,6 @@ function CenterFileUpload({ fieldKey, centerId = 'default', label, hint, accept 
         </div>
       </div>
       <input ref={inputRef} type="file" accept={accept} onChange={handleFile} style={{ display:'none' }} />
-      {noteToggle}
     </div>
   );
 }
