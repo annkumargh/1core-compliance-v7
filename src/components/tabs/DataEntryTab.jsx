@@ -300,12 +300,28 @@ function pastDrillHint(dateStr, freqDays = 35) {
   return { text: `Last drill ${days} days ago ✓`, color: '#2d7a4f' };
 }
 
+const D_COLORS = ['#4f5fa8','#0891b2','#7c3aed','#b45309','#15803d','#be185d','#0f766e'];
+const D_SHORT  = ['Licensing','Physical Env','Personnel','Ratios','Staff Health',"Children's Rec",'Safety'];
+
+// Editable dataKeys per domain (source:'New') for completion % calculation
+const DOMAIN_EDITABLE_KEYS = {
+  d1:['licenseNumber','licenseIssueDate','licenseClass','licenseExpiry','licenseRenewalDate','licensedCapacity','facilityNumber','licenseCertOnFile','postedNotices','glInsuranceProvider','glPolicyNumber','glExpiry','glCoverageAmount','coiOnFile','workersCompCurrent','workersCompExpiry','propertyInsurance','lastInspectionDate','lastInspectionResult','openViolationsCount','prevInspectionDate','complaintInspections','inspectionReportOnFile','qrisEnrolled','qrisRating'],
+  d2:['indoorSqFtTotal','outdoorSqFtTotal','roomCapacityPosted','floorPlanOnFile','hotWaterTemp','toiletCount','sinkCount','drinkingWater','hazMatStorage','chokeHazardPolicy','sharpToolPolicy','spacePolicyOnFile','adaCompliant','smokeDetectors','smokeDetectorTestDate','coDetectors','coDetectorTestDate','fencingHeight','gateSelfLatching','shadeAvailable','resilientSurfacing','equipmentAgeAppropriate','fireExtinguishers','fireExtInspDate','emergencyLighting','exitSigns','facilityInspCurrent','fireDeptInspDate','healthDeptInspDate','firstAidKit'],
+  d3:['directorName','directorEducation','directorECECredits','directorExperience','directorQualPathway','directorCredential','directorCredExpiry','leadTeacherQualMet','leadTeacherEducation','leadTeacherOrientation','aideAgeReq','aideOrientation','aideSuperPolicy','bgCheckComplete','stateBgCheckDate','fbiBgCheckDate','caRegistryCheck','preEmpAffidavit','volunteerBgPolicy','workforceRegistryEnrolled','registryProfileId','totalStaffCount','leadTeacherCount','aideCount','directorOnDutyPolicy'],
+  d4:['infantEnrollment','youngToddlerEnrollment','olderToddlerEnrollment','preschoolEnrollment','schoolAgeEnrollment','totalEnrollment','infantStaffCount','toddlerStaffCount','preschoolStaffCount','schoolAgeStaffCount','infantGroupSize','toddlerGroupSize','preschoolGroupSize','schoolAgeGroupSize','mixedAgeGroup','naptimeRatioAdj','signInLogMaintained','signInLogRetention','minStaffOnDuty','qualDirOnDuty','cprStaffOnDuty','staffScheduleOnFile','openCloseRatioCompliant','authorizedPickupCurrent'],
+  d5:['staffPhysicalOnFile','staffPhysicalDate','physicalRenewalDate','staffHealthStatement','commDiseasePol','illnessExclusionPosted','staffIllnessExclusion','staffVaccinationRecs','tbScreeningComplete','tbTestDate','tbTestResult','tbRenewalDate','cprCertOnFile','cprCertType','cprCertDate','cprExpiry','firstAidCurrent','cprStaffCount','foodProtMgr','aedOnPremises','mrTrainingComplete','mrTrainingDate','mrRenewalDate','annualTrainingHrs','trainingLogOnFile','trainingTopicsDocs','standardPrecautions','safeSleepTraining','childAbuseTraining','directorLedTraining','qrisTrainingMet','abuseReportingPosted','hotlinePosted','orientationComplete','orientationHours','orientationDate','emergPrepTraining','volunteerOrientation'],
+  d6:['childName','childDOB','enrollmentDate','withdrawalDate','enrollRecordComplete','custodyOrdersOnFile','emergContactCount','emergContactsOnFile','authPickupOnFile','emergContactUpdatePolicy','allergyDocOnFile','allergyCareplan','epiPenOnSite','foodAllergyPolicy','allergyListInKitchen','medAdminPolicy','medAuthOnFile','medLogMaintained','medsStoredCorrectly','rxOnFile','nonRxMedPolicy','childPhysicalOnFile','devScreeningOnFile','childPhysicalDate','visionHearingScreen','leadTestingDoc','immRecordsOnFile','immRecordsCurrent','immExemptionType','immExemptionDoc','safeSleepPolicy','safeSleepCommun','infantSleepEnv','safeSleepStaffTrain','familyMeetingDocs'],
+  d7:['fireEvacPlan','fireEvacPosted','lastFireDrillDate','fireDrillsCompleted','fireDrillLog','fireSafetyTraining','fireDeptInspCurrent','lastTornadoDrillDate','tornadoDrillsCompleted','tornadoDrillLog','shelterAreaIdentified','lastLockdownDate','lockdownDrillsCompleted','lockdownDrillLog','lockdownProcComm','emergPlanOnFile','emergPlanReviewed','emergPlanComm','emergPlanFamilies','emergContactListCurrent','relocationSite','firstAidKitContents','healthInspCurrent','healthInspDate','healthInspResult','healthInspReportOnFile','openHealthViolations','foodServicePermit','allDrillLogsRetained','drillLogRetentionMet','drillLogInspAccess','electronicDrillLog','waterSafetyPlan','lifeguardCert','waterActivityPermission','severeWeatherAlert','fireAlarmTested','commDeviceAvailable','attendanceSignInLog'],
+};
+
+const SUB_TAB_ID = ['licensing','physical','personnel','ratios','staffhealth','children','emergency'];
+
 const SUB_TABS = [
   { id: 'licensing',   label: 'Licensing & Admin' },
   { id: 'physical',    label: 'Facility & Space' },
   { id: 'personnel',   label: 'Personnel' },
-  { id: 'staffhealth', label: 'Staff Health & Training' },
   { id: 'ratios',      label: 'Ratios & Enrollment' },
+  { id: 'staffhealth', label: 'Staff Health & Training' },
   { id: 'children',    label: "Children's Records" },
   { id: 'emergency',   label: 'Safety & Emergency' },
 ];
@@ -453,27 +469,86 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
     );
   }
 
+  // Compute completion % per domain
+  const domainCompletion = Object.entries(DOMAIN_EDITABLE_KEYS).map(([dKey, keys]) => {
+    const filled = keys.filter(k => {
+      const v = liveData[k];
+      return v !== undefined && v !== null && v !== '';
+    }).length;
+    return Math.round((filled / keys.length) * 100);
+  });
+
   return (
     <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
       {highlighted && (
         <style>{`#field-${highlighted} { box-shadow: 0 0 0 1.5px #c9a227, 0 0 12px 3px rgba(201,162,39,0.22); border-radius: 8px; transition: box-shadow 0.3s; }`}</style>
       )}
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0' }}>
-        <h3>Data Entry — {center.name}</h3>
-        <p className="card-sub" style={{ marginBottom: 0 }}>
+      {/* ── Header ── */}
+      <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid #f1f5f9' }}>
+        <h3 style={{ marginBottom: 4 }}>Data Entry — {center.name}</h3>
+        <p className="card-sub" style={{ marginBottom: 4 }}>
           7 domains · 287 fields · All data saves automatically and updates compliance scores in real time.
           <strong style={{ color: '#00a99d' }}> Scores update as you type.</strong>
         </p>
-        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ color: '#b91c1c', fontWeight: 700, fontSize: 13 }}>*</span>
           <span style={{ fontSize: 12, color: '#64748b' }}>Required for compliance score — missing or failed values will reduce your domain score</span>
         </div>
       </div>
 
-      <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', overflowX: 'auto' }}>
+      {/* ── D1–D7 domain tiles (clickable) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8, padding: '12px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+        {SUB_TABS.map((t, i) => {
+          const pct    = domainCompletion[i];
+          const color  = pct === 100 ? '#2d7a4f' : pct >= 60 ? '#b45309' : pct > 0 ? D_COLORS[i] : '#94a3b8';
+          const isActive = sub === t.id;
+          const remaining = DOMAIN_EDITABLE_KEYS[Object.keys(DOMAIN_EDITABLE_KEYS)[i]].length -
+                            DOMAIN_EDITABLE_KEYS[Object.keys(DOMAIN_EDITABLE_KEYS)[i]].filter(k => liveData[k] !== undefined && liveData[k] !== null && liveData[k] !== '').length;
+          return (
+            <div
+              key={t.id}
+              onClick={() => setSub(t.id)}
+              style={{
+                background: '#fff',
+                border: `1px solid ${isActive ? color : '#e2e8f0'}`,
+                borderTop: `3px solid ${color}`,
+                borderRadius: 10,
+                padding: '10px 8px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                transition: 'box-shadow 0.15s, border-color 0.15s',
+                boxShadow: isActive ? `0 0 0 2px ${color}30` : 'none',
+              }}
+              onMouseEnter={e => { if (!isActive) e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = isActive ? `0 0 0 2px ${color}30` : 'none'; }}
+            >
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#94a3b8', marginBottom: 3, letterSpacing: '0.03em' }}>
+                {['D1','D2','D3','D4','D5','D6','D7'][i]}
+              </div>
+              <div style={{ fontSize: 17, fontWeight: 800, color, lineHeight: 1 }}>
+                {pct}%
+              </div>
+              <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 3, lineHeight: 1.3 }}>
+                {D_SHORT[i]}
+              </div>
+              {pct === 100 && (
+                <div style={{ marginTop: 5, fontSize: 10, fontWeight: 600, color: '#2d7a4f', background: '#eef7f2', borderRadius: 4, padding: '1px 4px' }}>✓ Complete</div>
+              )}
+              {pct < 100 && remaining > 0 && (
+                <div style={{ marginTop: 5, fontSize: 10, fontWeight: 600, color: pct >= 60 ? '#b45309' : '#64748b', background: pct >= 60 ? '#fdf4e7' : '#f1f5f9', borderRadius: 4, padding: '1px 4px' }}>
+                  {remaining} remaining
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Compact text tab bar (secondary nav) ── */}
+      <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#fff', overflowX: 'auto' }}>
         {SUB_TABS.map(t => (
           <button key={t.id} onClick={() => setSub(t.id)} style={{
-            padding: '10px 16px', border: 'none', background: 'transparent', fontSize: 12.5,
+            padding: '8px 16px', border: 'none', background: 'transparent', fontSize: 12.5,
             fontWeight: sub === t.id ? 700 : 500, color: sub === t.id ? '#00a99d' : '#64748b',
             borderBottom: sub === t.id ? '2px solid #00a99d' : '2px solid transparent',
             cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
