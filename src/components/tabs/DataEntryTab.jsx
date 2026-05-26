@@ -33,10 +33,10 @@ function NoteToggle({ fieldKey, entityId, storageLoader, storageSaver, matchHeig
   };
 
   if (matchHeight) {
-    // Always-open panel styled to match the upload box
+    // Always-open panel — fills the same height as the upload box via flex stretch
     return (
-      <div style={{ flex:1, display:'flex', flexDirection:'column', border:'1.5px dashed #e2e8f0', borderRadius:8, background:'#fafbfc', overflow:'hidden', minHeight:80 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', borderBottom: text ? '1px solid #f1f5f9' : 'none' }}>
+      <div style={{ display:'flex', flexDirection:'column', flex:1, height:'100%', border:'1.5px dashed #e2e8f0', borderRadius:8, background:'#fafbfc', overflow:'hidden', minHeight:68 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', borderBottom: text ? '1px solid #f1f5f9' : 'none', flexShrink:0 }}>
           <span style={{ fontSize:11, fontWeight:600, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.04em' }}>Note</span>
           {text.trim() && (
             <button onClick={() => handleChange('')} style={{ padding:'1px 7px', borderRadius:4, border:'1px solid #e8a0a0', background:'#fdf1f1', color:'#b91c1c', fontSize:11, cursor:'pointer', fontFamily:'inherit' }}>Clear</button>
@@ -46,7 +46,7 @@ function NoteToggle({ fieldKey, entityId, storageLoader, storageSaver, matchHeig
           value={text}
           onChange={e => handleChange(e.target.value)}
           placeholder="Add a note for this field..."
-          style={{ flex:1, width:'100%', padding:'8px 10px', border:'none', outline:'none', fontSize:12.5, color:'#374151', fontFamily:'inherit', resize:'none', boxSizing:'border-box', background:'transparent', lineHeight:1.5 }}
+          style={{ flex:1, width:'100%', padding:'8px 10px', border:'none', outline:'none', fontSize:12.5, color:'#374151', fontFamily:'inherit', resize:'none', boxSizing:'border-box', background:'transparent', lineHeight:1.5, minHeight:0 }}
         />
       </div>
     );
@@ -163,10 +163,10 @@ function CenterFileUpload({ fieldKey, centerId = 'default', label, hint, accept 
     : 'PDF, JPG, or PNG · Max 5 MB';
 
   return (
-    <div>
+    <div style={{ display:'flex', flexDirection:'column', flex:1, height:'100%' }}>
       <div
         onClick={() => inputRef.current?.click()}
-        style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', border:'1.5px dashed #cbd5e1', borderRadius:8, background:'#f8fafc', cursor:'pointer', marginTop:4, transition:'border-color 0.15s' }}
+        style={{ display:'flex', alignItems:'center', flex:1, gap:10, padding:'9px 12px', border:'1.5px dashed #cbd5e1', borderRadius:8, background:'#f8fafc', cursor:'pointer', marginTop:4, transition:'border-color 0.15s' }}
         onMouseEnter={e => e.currentTarget.style.borderColor = '#00a99d'}
         onMouseLeave={e => e.currentTarget.style.borderColor = '#cbd5e1'}
       >
@@ -196,17 +196,19 @@ function UploadRow({ fieldKey, centerId, label, hint, isPhoto = false }) {
         <div style={{ flex:1, height:1, background:'#f1f5f9' }} />
       </div>
       <div style={{ display:'flex', alignItems:'stretch', gap:16 }}>
-        <div style={{ flex:'0 0 50%', minWidth:0 }}>
+        <div style={{ flex:'0 0 50%', minWidth:0, display:'flex', flexDirection:'column' }}>
           <CenterFileUpload fieldKey={fieldKey} centerId={centerId} label={isPhoto ? 'Click to upload photo' : 'Click to upload document'} hint={hint} isPhoto={isPhoto} />
         </div>
         <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column' }}>
-          <NoteToggle
-            fieldKey={`note_upload_${fieldKey}`}
-            entityId={centerId}
-            storageLoader={loadCenterNotes}
-            storageSaver={saveCenterNotes}
-            matchHeight
-          />
+          <div style={{ flex:1, display:'flex', flexDirection:'column' }}>
+            <NoteToggle
+              fieldKey={`note_upload_${fieldKey}`}
+              entityId={centerId}
+              storageLoader={loadCenterNotes}
+              storageSaver={saveCenterNotes}
+              matchHeight
+            />
+          </div>
         </div>
       </div>
     </div>
