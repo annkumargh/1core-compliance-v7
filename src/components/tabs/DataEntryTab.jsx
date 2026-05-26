@@ -135,6 +135,10 @@ function CenterFileUpload({ fieldKey, centerId = 'default', label, hint, accept 
   }, [fieldKey, centerId]);
 
   const isImage = stored?.type?.startsWith('image/');
+  const fmtSize = s => s < 1024 * 1024 ? `${Math.round(s / 1024)} KB` : `${(s / 1024 / 1024).toFixed(1)} MB`;
+  const fmtDate = d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  if (stored) {
     return (
       <div>
         <div style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', border:'1px solid #a7d4ba', borderRadius:8, background:'#eef7f2', marginTop:4 }}>
