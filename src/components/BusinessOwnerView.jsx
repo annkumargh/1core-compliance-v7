@@ -408,9 +408,9 @@ export default function BusinessOwnerView({
   );
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', position:'relative' }}>
 
-      {/* ── Center drill-through overlay ── */}
+      {/* ── Center drill-through panel (sits inside the content area, no viewport takeover) ── */}
       {drillCenter && (() => {
         const dc = drillCenter;
         const reg = getRegForUI ? getRegForUI(dc.state) : {};
@@ -423,7 +423,7 @@ export default function BusinessOwnerView({
           { id:'cap',        label:'Corrective Action Plan' },
         ];
         return (
-          <div style={{ position:'fixed', inset:0, zIndex:999, display:'flex', flexDirection:'column', background:'var(--bg, #f8fafc)' }}>
+          <div style={{ position:'absolute', inset:0, zIndex:50, display:'flex', flexDirection:'column', background:'var(--bg, #f8fafc)', overflow:'hidden' }}>
             {/* Drill header */}
             <div style={{ background:'#fff', borderBottom:'1px solid #e2e8f0', padding:'0 20px', flexShrink:0 }}>
               <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0 0' }}>
