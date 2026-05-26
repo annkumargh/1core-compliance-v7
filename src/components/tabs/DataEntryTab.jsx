@@ -19,9 +19,10 @@ function saveCenterNotes(data) {
 
 // ─── NoteToggle ───────────────────────────────────────────────────────────────
 // Collapsible "Add note +" that expands to a textarea, persists to localStorage
-function NoteToggle({ fieldKey, entityId, storageLoader, storageSaver }) {
+// matchHeight=true: always shows as a bordered panel matching the upload box height
+function NoteToggle({ fieldKey, entityId, storageLoader, storageSaver, matchHeight = false }) {
   const noteId = `${entityId}__${fieldKey}`;
-  const [open, setOpen]   = useState(() => { const n = storageLoader(); return !!(n[noteId]); });
+  const [open, setOpen]   = useState(() => { const n = storageLoader(); return matchHeight || !!(n[noteId]); });
   const [text, setText]   = useState(() => { const n = storageLoader(); return n[noteId] || ''; });
 
   const handleChange = (val) => {
@@ -30,6 +31,26 @@ function NoteToggle({ fieldKey, entityId, storageLoader, storageSaver }) {
     if (val.trim()) { all[noteId] = val; } else { delete all[noteId]; }
     storageSaver(all);
   };
+
+  if (matchHeight) {
+    // Always-open panel styled to match the upload box
+    return (
+      <div style={{ flex:1, display:'flex', flexDirection:'column', border:'1.5px dashed #e2e8f0', borderRadius:8, background:'#fafbfc', overflow:'hidden', minHeight:80 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', borderBottom: text ? '1px solid #f1f5f9' : 'none' }}>
+          <span style={{ fontSize:11, fontWeight:600, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.04em' }}>Note</span>
+          {text.trim() && (
+            <button onClick={() => handleChange('')} style={{ padding:'1px 7px', borderRadius:4, border:'1px solid #e8a0a0', background:'#fdf1f1', color:'#b91c1c', fontSize:11, cursor:'pointer', fontFamily:'inherit' }}>Clear</button>
+          )}
+        </div>
+        <textarea
+          value={text}
+          onChange={e => handleChange(e.target.value)}
+          placeholder="Add a note for this field..."
+          style={{ flex:1, width:'100%', padding:'8px 10px', border:'none', outline:'none', fontSize:12.5, color:'#374151', fontFamily:'inherit', resize:'none', boxSizing:'border-box', background:'transparent', lineHeight:1.5 }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div style={{ marginTop: 6 }}>
@@ -174,7 +195,7 @@ function CenterFileUpload({ fieldKey, centerId = 'default', label, hint, accept 
   );
 }
 
-// UploadRow: half-width upload slot + note inline beside it
+// UploadRow: upload slot (left) + note panel (right, same height)
 function UploadRow({ fieldKey, centerId, label, hint, isPhoto = false }) {
   return (
     <div style={{ gridColumn:'1/-1' }} id={fieldKey ? `field-${fieldKey}` : undefined}>
@@ -185,16 +206,17 @@ function UploadRow({ fieldKey, centerId, label, hint, isPhoto = false }) {
         </span>
         <div style={{ flex:1, height:1, background:'#f1f5f9' }} />
       </div>
-      <div style={{ display:'flex', alignItems:'flex-start', gap:16 }}>
+      <div style={{ display:'flex', alignItems:'stretch', gap:16 }}>
         <div style={{ flex:'0 0 50%', minWidth:0 }}>
           <CenterFileUpload fieldKey={fieldKey} centerId={centerId} label={isPhoto ? 'Click to upload photo' : 'Click to upload document'} hint={hint} isPhoto={isPhoto} />
         </div>
-        <div style={{ flex:1, minWidth:0, paddingTop:4 }}>
+        <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column' }}>
           <NoteToggle
             fieldKey={`note_upload_${fieldKey}`}
             entityId={centerId}
             storageLoader={loadCenterNotes}
             storageSaver={saveCenterNotes}
+            matchHeight
           />
         </div>
       </div>
@@ -689,7 +711,6 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Equipment age-appropriate and in good repair" fieldKey="equipmentAgeAppropriate">
               <YesNo value={liveData.equipmentAgeAppropriate || ''} onChange={v => set('equipmentAgeAppropriate', v)} />
             </Field>
-            <NoteField fieldKey="equipmentAgeAppropriate" centerId={centerId} />
             <UploadRow fieldKey="gate_photo" centerId={centerId} label="Self-latching gate photo" hint="Photo showing self-latching mechanism on outdoor gate · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
             <UploadRow fieldKey="surfacing_photo" centerId={centerId} label="Resilient surfacing photo" hint="Photo of playground surfacing material under climbing equipment · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
           </Section>
