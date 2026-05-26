@@ -424,13 +424,13 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="GL coverage expiry" required hint={expiryHint(liveData.glExpiry)} fieldKey="glExpiry">
               <input type="date" value={liveData.glExpiry || ''} onChange={e => set('glExpiry', e.target.value)} />
             </Field>
-            <Field label="Workers comp expiry" hint={expiryHint(liveData.workersCompExpiry)}>
+            <Field label="Workers' comp expiry" hint={expiryHint(liveData.workersCompExpiry)}>
               <input type="date" value={liveData.workersCompExpiry || ''} onChange={e => set('workersCompExpiry', e.target.value)} />
             </Field>
-            <Field label="Workers comp current" required fieldKey="workersCompCurrent">
+            <Field label="Workers' comp current" required fieldKey="workersCompCurrent">
               <YesNo value={liveData.workersCompCurrent || ''} onChange={v => set('workersCompCurrent', v)} />
             </Field>
-            <Field label="COI on file">
+            <Field label="Certificate of Insurance (COI) current">
               <YesNo value={liveData.coiOnFile || ''} onChange={v => set('coiOnFile', v)} />
             </Field>
             <Field label="Property insurance on file">
@@ -461,7 +461,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Complaint inspections (12 mo)">
               <input type="number" min="0" value={liveData.complaintInspections || ''} onChange={e => set('complaintInspections', e.target.value)} />
             </Field>
-            <Field label="Inspection report on file" required>
+            <Field label="Licensing inspection report on file" required>
               <YesNo value={liveData.inspectionReportOnFile || ''} onChange={v => set('inspectionReportOnFile', v)} />
             </Field>
             <UploadRow fieldKey="inspection_report" centerId={centerId} label="Licensing inspection report" hint="Upload most recent state licensing inspection report · PDF · Max 5 MB" />
@@ -487,7 +487,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
         {/* ── D2: PHYSICAL ENVIRONMENT (41 fields) ── */}
         {sub === 'physical' && (<>
           <Section title="Space Measurements" sub={`${state} min: ${reg.indoorSqft || 35} sq ft indoor · ${reg.outdoorSqft || 75} sq ft outdoor per child`}>
-            <Field label="Total indoor activity sq ft" required chip={`min ${reg.indoorSqft || 35} sq ft/child`} fieldKey="indoorSqft">
+            <Field label="Total indoor sq ft" required chip={`min ${reg.indoorSqft || 35} sq ft/child`} fieldKey="indoorSqft">
               <input type="number" min="0" placeholder="e.g. 4500" value={liveData.indoorSqFtTotal || ''} onChange={e => set('indoorSqFtTotal', e.target.value)} />
               {liveData.indoorSqFtTotal && liveData.licensedCapacity && (() => {
                 const per = (parseFloat(liveData.indoorSqFtTotal) / parseFloat(liveData.licensedCapacity)).toFixed(1);
@@ -495,7 +495,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
                 return <span className={`hint ${ok ? 'ok' : 'bad'}`}>{per} sq ft/child — state min {reg.indoorSqft || 35}</span>;
               })()}
             </Field>
-            <Field label="Total outdoor activity sq ft" required chip={`min ${reg.outdoorSqft || 75} sq ft/child`} fieldKey="outdoorSqft">
+            <Field label="Total outdoor sq ft" required chip={`min ${reg.outdoorSqft || 75} sq ft/child`} fieldKey="outdoorSqft">
               <input type="number" min="0" placeholder="e.g. 8000" value={liveData.outdoorSqFtTotal || ''} onChange={e => set('outdoorSqFtTotal', e.target.value)} />
               {liveData.outdoorSqFtTotal && liveData.licensedCapacity && (() => {
                 const per = (parseFloat(liveData.outdoorSqFtTotal) / parseFloat(liveData.licensedCapacity)).toFixed(1);
@@ -503,7 +503,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
                 return <span className={`hint ${ok ? 'ok' : 'bad'}`}>{per} sq ft/child — state min {reg.outdoorSqft || 75}</span>;
               })()}
             </Field>
-            <Field label="Licensed room capacity posted">
+            <Field label="Room capacity sign posted">
               <YesNo value={liveData.roomCapacityPosted || ''} onChange={v => set('roomCapacityPosted', v)} />
             </Field>
             <Field label="Floor plan on file">
@@ -514,7 +514,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
           </Section>
 
           <Section title="Fixtures & Environment">
-            <Field label="Hot water temperature (°F)" required chip={`${state} max: ${rules.hotWaterMax || 110}°F`} fieldKey="hotWaterTemp">
+            <Field label="Hot water temperature" required chip={`${state} max: ${rules.hotWaterMax || 110}°F`} fieldKey="hotWaterTemp">
               <input type="number" placeholder="Measure at child fixture" value={liveData.hotWaterTemp || ''} onChange={e => set('hotWaterTemp', e.target.value)} />
               {liveData.hotWaterTemp && <span className={`hint ${parseFloat(liveData.hotWaterTemp) <= (parseInt(rules.hotWaterMax) || 110) ? 'ok' : 'bad'}`}>
                 State max: {rules.hotWaterMax || 110}°F

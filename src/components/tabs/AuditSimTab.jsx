@@ -112,40 +112,40 @@ function buildAllChecks(center, reg, liveData) {
   return {
     d1:[
       {label:'License number on file',          critical:true,  result:has(lic.licenseNumber)},
-      {label:'License not expired',             critical:true,  result:future(lic.licenseExpiry,0)},
+      {label:'License expiry date',             critical:true,  result:future(lic.licenseExpiry,0)},
       {label:'License certificate on file',     critical:false, result:yn(lic.licCertOnFile)},
-      {label:'GL insurance active',             critical:true,  result:future(lic.insuranceExpiry,0)},
-      {label:"Workers' comp active",            critical:false, result:future(lic.workersCompExpiry,0)},
-      {label:'Last inspection result on file',  critical:false, result:has(lic.lastInspectionResult)},
-      {label:'COI on file',                     critical:false, result:yn(lic.coiOnFile)},
+      {label:'Certificate of Insurance (COI) current',             critical:true,  result:future(lic.insuranceExpiry,0)},
+      {label:"Workers' comp current",            critical:false, result:future(lic.workersCompExpiry,0)},
+      {label:'Last inspection result',  critical:false, result:has(lic.lastInspectionResult)},
+      {label:'Certificate of Insurance (COI) current',                     critical:false, result:yn(lic.coiOnFile)},
     ],
     d2:[
-      {label:'CO detector installed',           critical:true,  result:yn(phy.coDetectorInstalled)},
+      {label:'CO detectors installed',           critical:true,  result:yn(phy.coDetectorInstalled)},
       {label:'Smoke detectors installed',       critical:true,  result:yn(phy.smokeDetectorInstalled)},
-      {label:'Fire extinguisher current',       critical:true,  result:yn(phy.fireExtinguisherCurrent)},
-      {label:'First aid kit present',           critical:false, result:yn(phy.firstAidKitPresent)},
-      {label:'Indoor space compliant',          critical:false, result:(() => {
+      {label:'Fire extinguishers current',       critical:true,  result:yn(phy.fireExtinguisherCurrent)},
+      {label:'First aid kit accessible — fully stocked',           critical:false, result:yn(phy.firstAidKitPresent)},
+      {label:'Total indoor sq ft',          critical:false, result:(() => {
         const i=parseFloat(phy.indoorSqft),c=parseFloat(phy.capacity);
         if(!i||!c)return 'not_entered'; return i/c>=(reg?.indoorSqft||35)?'pass':'fail';
       })()},
-      {label:'Outdoor space compliant',         critical:false, result:(() => {
+      {label:'Total outdoor sq ft',         critical:false, result:(() => {
         const o=parseFloat(phy.outdoorSqft),c=parseFloat(phy.capacity);
         if(!o||!c)return 'not_entered'; return o/c>=(reg?.outdoorSqft||75)?'pass':'fail';
       })()},
-      {label:'Hot water temperature safe',      critical:true,  result:(() => {
+      {label:'Hot water temperature',      critical:true,  result:(() => {
         const hw=parseFloat(phy.hotWaterMaxTemp);
         if(!hw)return 'not_entered'; return hw<=parseFloat(rules.hotWaterMax||110)?'pass':'fail';
       })()},
     ],
     d3:[
-      {label:'All staff background checked',    critical:true,  result:(() => {
+      {label:'BG check complete — all staff',    critical:true,  result:(() => {
         const v=parseFloat(cr.bgValid||0),t=parseFloat(cr.bgTotal||0);
         if(!t)return 'not_entered'; return v>=t?'pass':'fail';
       })()},
-      {label:'FBI clearance on file',           critical:true,  result:yn(per.fbiClearance)},
-      {label:'Child abuse registry checked',    critical:true,  result:has(per.childAbuseRegistryDate)},
-      {label:'Director qualifications on file', critical:false, result:has(per.directorEduLevel)},
-      {label:'Teacher qualifications met',      critical:false, result:yn(per.teacherEduMeetsReq)},
+      {label:'FBI fingerprint clearance on file',           critical:true,  result:yn(per.fbiClearance)},
+      {label:'Child abuse registry check',    critical:true,  result:has(per.childAbuseRegistryDate)},
+      {label:'Director qualification pathway', critical:false, result:has(per.directorEduLevel)},
+      {label:'Lead teacher qualification met',      critical:false, result:yn(per.teacherEduMeetsReq)},
     ],
     d4:[
       ...['infant','toddler','preschool','schoolAge'].map(key=>({
@@ -158,45 +158,45 @@ function buildAllChecks(center, reg, liveData) {
           return parseFloat(g.children)/parseFloat(g.staff)<=(reg?.[key]||99)?'pass':'fail';
         })(),
       })),
-      {label:'Sign-in/sign-out log',            critical:false, result:yn(rat.signinLogMaintained)},
+      {label:'Sign-in / sign-out log maintained',            critical:false, result:yn(rat.signinLogMaintained)},
     ],
     d5:[
-      {label:'CPR certification current',       critical:true,  result:(() => {
+      {label:'CPR certification on file — required staff',       critical:true,  result:(() => {
         if(!h.cprCertValid)return 'not_entered';
         if(h.cprCertValid!=='Yes')return 'fail';
         return future(h.cprExpiryDate,0);
       })()},
-      {label:'First Aid — all staff',           critical:false, result:yn(h.firstAidCertValid)},
-      {label:'Annual training hours met',       critical:false, result:(() => {
+      {label:'First aid certification current',           critical:false, result:yn(h.firstAidCertValid)},
+      {label:'Annual training hours completed',       critical:false, result:(() => {
         const hrs=parseFloat(cr.trainingHrs||0),req=reg?.trainingHrs||0;
         if(!cr.trainingHrs)return 'not_entered'; return hrs>=req?'pass':'fail';
       })()},
-      {label:'TB screening on file',            critical:false, result:yn(h.tbScreeningAllStaff)},
-      {label:'Mandated reporter training done', critical:false, result:(() => {
+      {label:'TB screening complete — all staff',            critical:false, result:yn(h.tbScreeningAllStaff)},
+      {label:'Mandated reporter training complete', critical:false, result:(() => {
         const s=cr.mandatedReporterDone;
         if(!s)return 'not_entered'; return s==='all'||s.includes('All')?'pass':'fail';
       })()},
     ],
     d6:[
-      {label:'Child enrollment records complete',critical:true, result:yn(ch.childRecordComplete)},
-      {label:'Emergency contacts on file',       critical:true, result:yn(ch.emergContactsOnFile)},
-      {label:'Immunization records on file',     critical:true, result:yn(ch.immRecordsOnFile)},
-      {label:'Parent agreements signed',         critical:false,result:yn(ch.parentAgreementSigned)},
-      {label:'Allergy care plans on file',       critical:false,result:yn(ch.allergyCareplan)},
+      {label:'Child enrollment record complete — all children',critical:true, result:yn(ch.childRecordComplete)},
+      {label:'Emergency contacts on file — all children',       critical:true, result:yn(ch.emergContactsOnFile)},
+      {label:'Immunization records on file — all children',     critical:true, result:yn(ch.immRecordsOnFile)},
+      {label:'Parent / guardian agreement signed — all children',         critical:false,result:yn(ch.parentAgreementSigned)},
+      {label:'Allergy care plan on file',       critical:false,result:yn(ch.allergyCareplan)},
       {label:'Safe sleep policy on file',        critical:false,result:ynNA(ch.safeSleepPolicy)},
       {label:'Daily attendance record on file',  critical:false,result:yn(ch.attendanceRecordOnFile)},
     ],
     d7:[
       {label:'Fire evacuation plan on file',    critical:true,  result:yn(em.fireEvacPlan)},
-      {label:'Fire drill current (≤35 days)',   critical:true,  result:age(em.lastFireDrillDate,35)},
+      {label:'Last fire drill date',   critical:true,  result:age(em.lastFireDrillDate,35)},
       {label:'Fire drill log on file',          critical:false, result:yn(em.fireDrillLog)},
-      {label:'Tornado/weather drill done',      critical:false, result:(() => {
+      {label:'Last tornado drill date',      critical:false, result:(() => {
         if(rules.tornadoDrill==='Not required')return 'pass';
         return age(em.tornadoDrillDate,rules.tornadoDrill==='Monthly'?35:200);
       })()},
-      {label:'Lockdown drill current',          critical:false, result:age(em.lockdownDrillDate,200)},
-      {label:'Emergency plan on file',          critical:false, result:yn(em.emergencyPlanOnFile)},
-      {label:'Drill log maintained',            critical:false, result:yn(em.drillLogMaintained)},
+      {label:'Last lockdown drill date',          critical:false, result:age(em.lockdownDrillDate,200)},
+      {label:'Written emergency plan on file',          critical:false, result:yn(em.emergencyPlanOnFile)},
+      {label:'All drill logs retained',            critical:false, result:yn(em.drillLogMaintained)},
     ],
   };
 }
