@@ -1,6 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import NetworkIntelligenceTab from './NetworkIntelligenceTab';
 import TrendsTab from './TrendsTab';
+import DataEntryTab          from './tabs/DataEntryTab';
+import AuditSimTab           from './tabs/AuditSimTab';
+import HistoryTab            from './tabs/HistoryTab';
+import CorrectiveActionPlanTab from './tabs/CorrectiveActionPlanTab';
+import InspectionView        from './tabs/InspectionView';
 
 // ── Score helpers (muted palette matching app-wide) ───────────────────────────
 const sColor = s => s>=80?'#2d7a4f':s>=60?'#b45309':s!==null&&s!==undefined?'#b91c1c':'#64748b';
@@ -151,6 +156,34 @@ export default function BusinessOwnerView({
   getRegForUI,
 }) {
   const [boTab, setBoTab] = useState('overview');
+  const [drillCenter, setDrillCenter] = useState(null); // {id, name, state, ...}
+  const [drillTab, setDrillTab]       = useState('data');
+  const [drillLiveData, setDrillLiveData] = useState({});
+
+  // Load flat liveData for drilled center from localStorage
+  const loadDrillData = (centerId) => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('1core_compliance_v6') || '{}');
+      return raw[centerId] || {};
+    } catch { return {}; }
+  };
+  const saveDrillData = (centerId, key, val) => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('1core_compliance_v6') || '{}');
+      if (!raw[centerId]) raw[centerId] = {};
+      raw[centerId][key] = val;
+      localStorage.setItem('1core_compliance_v6', JSON.stringify(raw));
+      setDrillLiveData(prev => ({ ...prev, [key]: val }));
+    } catch {}
+  };
+
+  const openDrill = (centerId) => {
+    const found = enriched.find(c => c.id === centerId) || { id: centerId };
+    setDrillCenter(found);
+    setDrillTab('data');
+    setDrillLiveData(loadDrillData(centerId));
+  };
+  const closeDrill = () => { setDrillCenter(null); setDrillLiveData({}); };
 
   const enriched = useMemo(() => centers.map(c => {
     const seed = lionheartSeed[c.id] || {};
@@ -336,10 +369,10 @@ export default function BusinessOwnerView({
       <div style={{ fontSize:11.5, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:14 }}>
         All {total} centers — compliance status
       </div>
-      <StatusGroup label="Non-Compliant" score={40}   centers={nonCompliant} onSelect={onSelectCenter} defaultOpen={true}  />
-      <StatusGroup label="At Risk"       score={70}   centers={atRisk}       onSelect={onSelectCenter} defaultOpen={true}  />
-      <StatusGroup label="Compliant"     score={90}   centers={compliant}    onSelect={onSelectCenter} defaultOpen={true}  />
-      <StatusGroup label="No Data"       score={null} centers={noData}       onSelect={onSelectCenter} defaultOpen={false} />
+      <StatusGroup label="Non-Compliant" score={40}   centers={nonCompliant} onSelect={openDrill} defaultOpen={true}  />
+      <StatusGroup label="At Risk"       score={70}   centers={atRisk}       onSelect={openDrill} defaultOpen={true}  />
+      <StatusGroup label="Compliant"     score={90}   centers={compliant}    onSelect={openDrill} defaultOpen={true}  />
+      <StatusGroup label="No Data"       score={null} centers={noData}       onSelect={openDrill} defaultOpen={false} />
     </div>
   );
 
@@ -376,6 +409,92 @@ export default function BusinessOwnerView({
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+
+      {/* ── Center drill-through overlay ── */}
+      {drillCenter && (() => {
+        const dc = drillCenter;
+        const reg = getRegForUI ? getRegForUI(dc.state) : {};
+        const centerObj = { id: dc.id, name: dc.name, state: dc.state, city: dc.city, zip: dc.zip || '' };
+        const DRILL_TABS = [
+          { id:'data',       label:'Data Entry' },
+          { id:'inspection', label:'Inspection View' },
+          { id:'auditsim',   label:'Audit Simulation' },
+          { id:'history',    label:'History' },
+          { id:'cap',        label:'Corrective Action Plan' },
+        ];
+        return (
+          <div style={{ position:'fixed', inset:0, zIndex:999, display:'flex', flexDirection:'column', background:'var(--bg, #f8fafc)' }}>
+            {/* Drill header */}
+            <div style={{ background:'#fff', borderBottom:'1px solid #e2e8f0', padding:'0 20px', flexShrink:0 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0 0' }}>
+                <button onClick={closeDrill} style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:6, border:'1px solid #e2e8f0', background:'#f8fafc', color:'#64748b', fontSize:12.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                  Back to Network
+                </button>
+                <span style={{ color:'#94a3b8', fontSize:13 }}>›</span>
+                <span style={{ fontSize:13.5, fontWeight:700, color:'#1e293b' }}>{dc.name}</span>
+                <span style={{ fontSize:11.5, color:'#94a3b8' }}>{[dc.city, dc.state].filter(Boolean).join(', ')}</span>
+                {dc.score != null && (
+                  <span style={{ marginLeft:'auto', fontSize:13, fontWeight:700, padding:'3px 10px', borderRadius:20, background:sBg(dc.score), color:sColor(dc.score), border:`1px solid ${sBd(dc.score)}` }}>
+                    {dc.score}% — {sLabel(dc.score)}
+                  </span>
+                )}
+              </div>
+              {/* Drill tab bar */}
+              <div style={{ display:'flex', gap:0, marginTop:2 }}>
+                {DRILL_TABS.map(t => (
+                  <button key={t.id} onClick={() => setDrillTab(t.id)} style={{
+                    padding:'8px 14px', fontSize:12.5, fontWeight:600,
+                    background:'none', border:'none', cursor:'pointer',
+                    borderBottom: drillTab===t.id ? '2px solid #00a99d' : '2px solid transparent',
+                    color: drillTab===t.id ? '#00a99d' : '#64748b',
+                    marginBottom:-1, fontFamily:'inherit',
+                  }}>{t.label}</button>
+                ))}
+              </div>
+            </div>
+            {/* Drill content */}
+            <div style={{ flex:1, overflowY:'auto', padding: drillTab==='data' ? 0 : 20 }}>
+              {drillTab === 'data' && (
+                <DataEntryTab
+                  center={centerObj}
+                  liveData={drillLiveData}
+                  updateData={(key, val) => saveDrillData(dc.id, key, val)}
+                  reg={reg}
+                />
+              )}
+              {drillTab === 'inspection' && (
+                <InspectionView
+                  center={centerObj}
+                  reg={reg}
+                  liveData={drillLiveData}
+                />
+              )}
+              {drillTab === 'auditsim' && (
+                <AuditSimTab
+                  center={centerObj}
+                  reg={reg}
+                  liveData={{ data: drillLiveData }}
+                />
+              )}
+              {drillTab === 'history' && (
+                <HistoryTab
+                  center={centerObj}
+                  reg={reg}
+                  liveData={drillLiveData}
+                />
+              )}
+              {drillTab === 'cap' && (
+                <CorrectiveActionPlanTab
+                  center={centerObj}
+                  reg={reg}
+                  liveData={drillLiveData}
+                />
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Teal breadcrumb */}
       <div style={{ padding:'10px 26px 0', background:'#fff', flexShrink:0 }}>
