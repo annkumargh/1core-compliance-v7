@@ -246,7 +246,7 @@ function YesNo({ value, onChange, opts = ['Yes','No','N/A'] }) {
 const FIELD_NUMS = {
   'licenseNumber':'D1-001','licenseExpiry':'D1-002','licensedCapacity':'D4-007',
   'licenseCertOnFile':'D1-004','licenseClass':'D1-005','facilityNumber':'D1-006',
-  'licenseRenewalDate':'D1-007','glInsuranceProvider':'D1-008','glPolicyNumber':'D1-009',
+  'licenseRenewalDate':'D1-007','licenseIssueDate':'D1-036','glInsuranceProvider':'D1-008','glPolicyNumber':'D1-009',
   'glExpiry':'D1-010','glCoverageAmount':'D1-011','coiOnFile':'D1-012',
   'workersCompCurrent':'D1-013','workersCompExpiry':'D1-014','propertyInsurance':'D1-015',
   'lastInspectionDate':'D1-016','lastInspectionResult':'D1-017','inspectionReportOnFile':'D1-018',
