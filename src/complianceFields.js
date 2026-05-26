@@ -250,7 +250,7 @@ export function getDomainFields(center, reg, liveData = {}) {
 
     // ── D6: Children's Records & Health (─────────────────)
     {
-      id:'d6', label:'Children's Records & Health', dNum:'D6',
+      id:'d6', label:"Children's Records & Health", dNum:'D6',
       fields: [
         { fieldNum:'D6-001', label:'Child name on file', dataKey:'childName', fieldType:'Text', subTab:'children', source:'1Core', critical:true, inspector:true, value: center.childName || ld['childName'] || seed._childName || '', status: has(ld['childName']), fieldKey:'childName', description:'Child\'s legal name — pulled from 1Core enrollment data' },
         { fieldNum:'D6-002', label:'Child DOB on file', dataKey:'childDOB', fieldType:'Date', subTab:'children', source:'1Core', critical:true, inspector:true, value: center.childDOB || ld['childDOB'] || seed._childDOB || '', status: has(ld['childDOB']), fieldKey:'childDOB', description:'Child\'s date of birth — pulled from 1Core; used for age group ratio assignment' },
