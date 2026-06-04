@@ -294,7 +294,6 @@ const NAV = {
     {id:'dataentry',  label:'Data Entry',      icon:'edit',    group:''           },
     {id:'auditsim',   label:'Audit Simulation',icon:'shield',  group:''           },
     {id:'history',    label:'History',         icon:'history', group:''           },
-    {id:'changelog',  label:'Change Log',      icon:'history', group:''           },
     {id:'help',       label:'Help & Glossary', icon:'help',    group:''           },
   ],
   // Owner-inside-center nav: same as director minus Audit Simulation (operational tool)
@@ -304,7 +303,6 @@ const NAV = {
     {id:'staterules', label:'State Rules',     icon:'map',     group:''          },
     {id:'dataentry',  label:'Data Entry',      icon:'edit',    group:''          },
     {id:'history',    label:'History',         icon:'history', group:''          },
-    {id:'changelog',  label:'Change Log',      icon:'history', group:''          },
     {id:'help',       label:'Help & Glossary', icon:'help',    group:''          },
   ],
   owner:     [
@@ -324,7 +322,6 @@ const NAV = {
     {id:'insphistory', label:'Inspection History',  icon:'history',   group:'RECORDS'   },
     {id:'opencap',     label:'Open Corrections',    icon:'clipboard', group:''          },
     {id:'documents',   label:'Documents',           icon:'folder',    group:''          },
-    {id:'changelog',   label:'Change Log',          icon:'history',   group:''          },
     {id:'centerprofile',label:'Center Profile',     icon:'building',  group:''          },
   ],
 };
@@ -364,6 +361,8 @@ export default function App() {
   const [stateFilter,   setStateFilter]   = useState('All states');
   // superadmin: null = platform overview, string = center id selected
   const [saMode,        setSaMode]        = useState('platform'); // 'platform' | 'center'
+  const [saSidebarMode, setSaSidebarMode] = useState('centers');  // 'centers' | 'companies'
+  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [allData,       setAllData]       = useState(() => initStorage());
   const [pendingStaffUpdates, setPendingStaffUpdates] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY + '_pending')) || []; } catch { return []; }
@@ -518,8 +517,17 @@ export default function App() {
     setActiveTab('overview');
   };
 
+  // ── Superadmin company selection: expand sidebar tree + show Company View ────
+  const handleSASelectCompany = (company) => {
+    if (!company) { handleSAPlatformView(); return; }
+    setSelectedCompanyId(prev => prev === company.id ? null : company.id);
+    setSaMode('company-view');
+    setActiveTab('overview');
+  };
+
   const handleSAPlatformView = () => {
     setSaMode('platform');
+    setSelectedCompanyId(null);
     setActiveTab('overview');
   };
 
@@ -612,19 +620,42 @@ export default function App() {
           </>
         )}
 
+        {/* Superadmin: Centers / Companies toggle */}
+        {role === 'superadmin' && (
+          <div style={{padding:'10px 14px 8px',borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
+            <div style={{display:'flex',background:'rgba(255,255,255,0.06)',borderRadius:8,padding:3,gap:2}}>
+              {['centers','companies'].map(mode => (
+                <button key={mode} onClick={() => { setSaSidebarMode(mode); setSearch(''); }}
+                  style={{
+                    flex:1,padding:'6px 0',borderRadius:6,border:'none',cursor:'pointer',
+                    fontFamily:'inherit',fontSize:12,fontWeight:600,transition:'all 0.15s',
+                    background: saSidebarMode===mode ? 'rgba(79,95,168,0.35)' : 'transparent',
+                    color: saSidebarMode===mode ? '#c5cbee' : '#64748b',
+                  }}>
+                  {mode === 'centers' ? `Centers` : `Companies`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Search — show for director, owner, superadmin */}
         {showCenterList && (
           <div className="sidebar-search">
             <input
-              placeholder={role==='superadmin' ? 'Search centers, cities...' : 'Search centers...'}
+              placeholder={
+                role !== 'superadmin' ? 'Search centers...' :
+                saSidebarMode === 'companies' ? 'Search companies...' :
+                'Search centers, cities...'
+              }
               value={search}
               onChange={e=>setSearch(e.target.value)}
             />
           </div>
         )}
 
-        {/* State filter — superadmin only */}
-        {role === 'superadmin' && (
+        {/* State filter — superadmin centers mode only */}
+        {role === 'superadmin' && saSidebarMode === 'centers' && (
           <div style={{padding:'0 14px 10px',borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
             <select
               value={stateFilter}
@@ -710,52 +741,134 @@ export default function App() {
           </div>
         )}
 
-        {/* Center list */}
+        {/* Center list — Centers mode (all roles) OR SA companies mode */}
         {showCenterList && (
           <>
-            <div style={{padding:'10px 14px 5px',fontSize:10,fontWeight:700,color:'#4a5568',letterSpacing:'0.08em',borderTop:'1px solid rgba(255,255,255,0.06)'}}>
-              {role==='superadmin'
-                ? `ALL CENTERS (${filteredCenters.length}${filteredCenters.length<roleCenters.length?` of ${roleCenters.length}`:''})`
-                : `LIONHEART CENTERS (${filteredCenters.length})`}
-            </div>
-            <div className="sidebar-list">
-              {filteredCenters.map(c=>{
-                const d = allData[c.id]||EMPTY();
-                const sc = calcCompliance(d,c.state);
-                const seed = LIONHEART_SEED[c.id]||{};
-                const s = sc.overall??seed._scores?.overall??null;
-                const isActive = selectedId===c.id && (role!=='superadmin' || saMode==='center');
-                return (
-                  <div key={c.id} className={`center-item ${isActive?'active':''}`}
-                    onClick={()=>{
-                      if (role==='superadmin') {
-                        handleSASelectCenter(c.id);
-                      } else {
-                        setSelectedId(c.id);
-                        setActiveTab('overview');
-                      }
-                    }}>
-                    <div className="center-score-dot" style={{background:scoreColor(s),color:'#fff',fontSize:11}}>
-                      {s!==null?`${s}%`:'—'}
-                    </div>
-                    <div style={{minWidth:0,flex:1}}>
-                      <div className="center-item-name">{c.centerName}</div>
-                      <div className="center-item-sub">
-                        {c.city}, {c.state}
-                        {role==='superadmin' && (
-                          <span style={{color:'#4a5568'}}> · {c.companyName?.split(' ').slice(0,2).join(' ')}</span>
-                        )}
-                      </div>
-                    </div>
+            {/* ── SA: Companies mode — tree list ── */}
+            {role === 'superadmin' && saSidebarMode === 'companies' ? (() => {
+              const filteredCos = COMPANIES.filter(co =>
+                !search || co.name.toLowerCase().includes(search.toLowerCase())
+              );
+              return (
+                <>
+                  <div style={{padding:'10px 14px 5px',fontSize:10,fontWeight:700,color:'#4a5568',letterSpacing:'0.08em',borderTop:'1px solid rgba(255,255,255,0.06)'}}>
+                    {`ALL COMPANIES (${filteredCos.length}${filteredCos.length<COMPANIES.length?` of ${COMPANIES.length}`:''})`}
                   </div>
-                );
-              })}
-              {filteredCenters.length === 0 && (
-                <div style={{padding:'20px 14px',fontSize:12,color:'#4a5568',textAlign:'center'}}>
-                  No centers match your filters
+                  <div className="sidebar-list">
+                    {filteredCos.map(co => {
+                      const isExpanded = selectedCompanyId === co.id;
+                      const isActiveCompany = (saMode === 'company-view') && selectedCompanyId === co.id;
+                      return (
+                        <div key={co.id}>
+                          {/* Company row */}
+                          <div
+                            onClick={() => handleSASelectCompany(co)}
+                            style={{
+                              display:'flex', alignItems:'center', gap:9,
+                              padding:'9px 14px', cursor:'pointer',
+                              background: isActiveCompany ? 'rgba(79,95,168,0.18)' : 'transparent',
+                              borderLeft: isActiveCompany ? '3px solid #4f5fa8' : '3px solid transparent',
+                              transition:'background 0.12s',
+                            }}
+                            onMouseEnter={e => { if(!isActiveCompany) e.currentTarget.style.background='rgba(255,255,255,0.04)'; }}
+                            onMouseLeave={e => { if(!isActiveCompany) e.currentTarget.style.background='transparent'; }}
+                          >
+                            <span style={{color:isActiveCompany?'#8b9fd4':'#4a5568',fontSize:10,lineHeight:1,flexShrink:0,transition:'transform 0.15s',display:'inline-block',transform:isExpanded?'rotate(90deg)':'rotate(0deg)'}}>▶</span>
+                            <div style={{minWidth:0,flex:1}}>
+                              <div style={{fontSize:12.5,fontWeight:isActiveCompany?700:500,color:isActiveCompany?'#c5cbee':'#94a3b8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                                {co.name}
+                              </div>
+                              <div style={{fontSize:10.5,color:'#4a5568',marginTop:1}}>
+                                {co.centers.length} centers · {co.states.slice(0,3).join(', ')}{co.states.length>3?` +${co.states.length-3}`:''}
+                              </div>
+                            </div>
+                          </div>
+                          {/* Expanded center tree */}
+                          {isExpanded && (
+                            <div style={{borderLeft:'1px solid rgba(79,95,168,0.25)',marginLeft:22}}>
+                              {co.centers.map(c => {
+                                const d = allData[c.id]||EMPTY();
+                                const sc2 = calcCompliance(d,c.state);
+                                const seed = LIONHEART_SEED[c.id]||{};
+                                const s = sc2.overall??seed._scores?.overall??null;
+                                const isActive = selectedId===c.id && saMode==='center';
+                                return (
+                                  <div key={c.id}
+                                    className={`center-item ${isActive?'active':''}`}
+                                    onClick={() => handleSASelectCenter(c.id)}
+                                    style={{paddingLeft:10}}
+                                  >
+                                    <div className="center-score-dot" style={{background:scoreColor(s),color:'#fff',fontSize:10,width:28,height:28,minWidth:28}}>
+                                      {s!==null?`${s}%`:'—'}
+                                    </div>
+                                    <div style={{minWidth:0,flex:1}}>
+                                      <div className="center-item-name" style={{fontSize:12}}>{c.centerName}</div>
+                                      <div className="center-item-sub">{c.city}, {c.state}</div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {filteredCos.length === 0 && (
+                      <div style={{padding:'20px 14px',fontSize:12,color:'#4a5568',textAlign:'center'}}>
+                        No companies match your search
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })() : (
+              /* ── Centers mode (all roles) ── */
+              <>
+                <div style={{padding:'10px 14px 5px',fontSize:10,fontWeight:700,color:'#4a5568',letterSpacing:'0.08em',borderTop:'1px solid rgba(255,255,255,0.06)'}}>
+                  {role==='superadmin'
+                    ? `ALL CENTERS (${filteredCenters.length}${filteredCenters.length<roleCenters.length?` of ${roleCenters.length}`:''})`
+                    : `LIONHEART CENTERS (${filteredCenters.length})`}
                 </div>
-              )}
-            </div>
+                <div className="sidebar-list">
+                  {filteredCenters.map(c=>{
+                    const d = allData[c.id]||EMPTY();
+                    const sc = calcCompliance(d,c.state);
+                    const seed = LIONHEART_SEED[c.id]||{};
+                    const s = sc.overall??seed._scores?.overall??null;
+                    const isActive = selectedId===c.id && (role!=='superadmin' || saMode==='center');
+                    return (
+                      <div key={c.id} className={`center-item ${isActive?'active':''}`}
+                        onClick={()=>{
+                          if (role==='superadmin') {
+                            handleSASelectCenter(c.id);
+                          } else {
+                            setSelectedId(c.id);
+                            setActiveTab('overview');
+                          }
+                        }}>
+                        <div className="center-score-dot" style={{background:scoreColor(s),color:'#fff',fontSize:11}}>
+                          {s!==null?`${s}%`:'—'}
+                        </div>
+                        <div style={{minWidth:0,flex:1}}>
+                          <div className="center-item-name">{c.centerName}</div>
+                          <div className="center-item-sub">
+                            {c.city}, {c.state}
+                            {role==='superadmin' && (
+                              <span style={{color:'#4a5568'}}> · {c.companyName?.split(' ').slice(0,2).join(' ')}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {filteredCenters.length === 0 && (
+                    <div style={{padding:'20px 14px',fontSize:12,color:'#4a5568',textAlign:'center'}}>
+                      No centers match your filters
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </>
         )}
 
@@ -828,7 +941,7 @@ export default function App() {
           />
         )}
 
-        {/* Superadmin: platform overview OR center detail */}
+        {/* Superadmin: platform overview OR company view OR center detail */}
         {role==='superadmin' && saMode==='platform' && (
           <SuperAdminView
             activeTab={activeTab}
@@ -838,6 +951,7 @@ export default function App() {
             lionheartSeed={LIONHEART_SEED}
             scoreColor={scoreColor}
             onSelectCenter={handleSASelectCenter}
+            onSelectCompany={handleSASelectCompany}
           />
         )}
         {role==='superadmin' && saMode==='platform' && activeTab==='help' && (
@@ -845,19 +959,73 @@ export default function App() {
             <HelpTab/>
           </div>
         )}
-        {role==='superadmin' && saMode==='center' && (
-          <CenterDirectorView
-            center={centerViewData}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            scoreColor={scoreColor}
-            scoreLabel={scoreLabel}
-            liveData={centerData}
-            updateData={(section,fields)=>updateData(selectedId,section,fields)}
-            reg={reg}
-            userRole="superadmin"
-          />
-        )}
+        {role==='superadmin' && saMode==='company-view' && selectedCompanyId && (() => {
+          const co = COMPANIES.find(c=>c.id===selectedCompanyId);
+          if (!co) return null;
+          return (
+            <SuperAdminView
+              activeTab={activeTab}
+              allData={allData}
+              companies={COMPANIES}
+              allCenters={CENTERS}
+              lionheartSeed={LIONHEART_SEED}
+              scoreColor={scoreColor}
+              onSelectCenter={handleSASelectCenter}
+              onSelectCompany={handleSASelectCompany}
+              initialCompanyView={co}
+            />
+          );
+        })()}
+        {role==='superadmin' && saMode==='center' && (() => {
+          const co = COMPANIES.find(c => c.centers.some(x => x.id === selectedId));
+          return (
+            <div style={{display:'flex',flexDirection:'column',height:'100%',overflow:'hidden'}}>
+              {/* ── SA Breadcrumb Header ── */}
+              <div style={{
+                background:'#1e293b',borderBottom:'1px solid #334155',
+                padding:'10px 24px',display:'flex',alignItems:'center',
+                justifyContent:'space-between',flexShrink:0,
+              }}>
+                <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12.5,flexWrap:'wrap'}}>
+                  <button onClick={handleSAPlatformView} style={{
+                    background:'none',border:'none',color:'#60a5fa',cursor:'pointer',
+                    fontSize:12.5,fontFamily:'inherit',padding:0,fontWeight:500,
+                  }}>Platform Overview</button>
+                  <span style={{color:'#475569'}}>›</span>
+                  {co && (
+                    <>
+                      <button onClick={() => handleSASelectCompany(co)} style={{
+                        background:'none',border:'none',color:'#60a5fa',cursor:'pointer',
+                        fontSize:12.5,fontFamily:'inherit',padding:0,fontWeight:500,
+                      }}>{co.name}</button>
+                      <span style={{color:'#475569'}}>›</span>
+                    </>
+                  )}
+                  <span style={{color:'#e2e8f0',fontWeight:600}}>{centerViewData.name}</span>
+                </div>
+                <span style={{
+                  fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:20,
+                  background:'rgba(79,95,168,0.25)',color:'#8b9fd4',
+                  border:'1px solid rgba(79,95,168,0.4)',letterSpacing:'0.04em',
+                  whiteSpace:'nowrap',
+                }}>SUPER ADMIN MODE</span>
+              </div>
+              <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+                <CenterDirectorView
+                  center={centerViewData}
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                  scoreColor={scoreColor}
+                  scoreLabel={scoreLabel}
+                  liveData={centerData}
+                  updateData={(section,fields)=>updateData(selectedId,section,fields)}
+                  reg={reg}
+                  userRole="superadmin"
+                />
+              </div>
+            </div>
+          );
+        })()}
 
         {role==='director' && (
           <CenterDirectorView
