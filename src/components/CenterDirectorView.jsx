@@ -61,7 +61,7 @@ export default function CenterDirectorView({
   const centerWithSeed = { ...center, _seed: center, liveData: flatLiveData };
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+    <div style={{ display:'flex', flexDirection:'column', minHeight:'100%' }}>
 
       {/* ── Center header ── */}
       <div className="center-header">
