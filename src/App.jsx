@@ -294,6 +294,7 @@ const NAV = {
     {id:'dataentry',  label:'Data Entry',      icon:'edit',    group:''           },
     {id:'auditsim',   label:'Audit Simulation',icon:'shield',  group:''           },
     {id:'history',    label:'History',         icon:'history', group:''           },
+    {id:'changelog',  label:'Change Log',      icon:'history', group:''           },
     {id:'help',       label:'Help & Glossary', icon:'help',    group:''           },
   ],
   // Owner-inside-center nav: same as director minus Audit Simulation (operational tool)
@@ -303,6 +304,7 @@ const NAV = {
     {id:'staterules', label:'State Rules',     icon:'map',     group:''          },
     {id:'dataentry',  label:'Data Entry',      icon:'edit',    group:''          },
     {id:'history',    label:'History',         icon:'history', group:''          },
+    {id:'changelog',  label:'Change Log',      icon:'history', group:''          },
     {id:'help',       label:'Help & Glossary', icon:'help',    group:''          },
   ],
   owner:     [
@@ -322,6 +324,7 @@ const NAV = {
     {id:'insphistory', label:'Inspection History',  icon:'history',   group:'RECORDS'   },
     {id:'opencap',     label:'Open Corrections',    icon:'clipboard', group:''          },
     {id:'documents',   label:'Documents',           icon:'folder',    group:''          },
+    {id:'changelog',   label:'Change Log',          icon:'history',   group:''          },
     {id:'centerprofile',label:'Center Profile',     icon:'building',  group:''          },
   ],
 };
