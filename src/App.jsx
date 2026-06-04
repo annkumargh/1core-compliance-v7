@@ -405,7 +405,7 @@ export default function App() {
     });
   }, []);
 
-  if (!role) return <LoginScreen onLogin={r => { setRole(r); setActiveTab(r==='staff'?'status':'overview'); if(r==='owner') setSelectedId(null); }} />;
+  if (!role) return <LoginScreen onLogin={r => { setRole(r); setSelectedId(null); setActiveTab(r==='staff'?'status':'overview'); }} />;
 
   const user     = USERS[role];
   const roleConf = ROLES[role];
@@ -517,6 +517,18 @@ export default function App() {
     setActiveTab('overview');
   };
 
+  // ── Reset all role-scoped state when switching roles ─────────────────────────
+  const handleSwitchRole = () => {
+    setRole(null);
+    setSelectedId(null);
+    setActiveTab('overview');
+    setSaMode('platform');
+    setSaSidebarMode('centers');
+    setSelectedCompanyId(null);
+    setSearch('');
+    setStateFilter('All states');
+  };
+
   // ── Superadmin company selection: expand sidebar tree + show Company View ────
   const handleSASelectCompany = (company) => {
     if (!company) { handleSAPlatformView(); return; }
@@ -550,7 +562,7 @@ export default function App() {
           </svg>
           <div className="header-wordmark">1CORE <span>SOLUTION</span></div>
           <div className="header-divider"/>
-          <div className="header-title">Compliance Module v6</div>
+          <div className="header-title">Compliance Module v7</div>
         </div>
         <div className="header-right">
           {role!=='staff'&&role!=='inspector'&&criticalCount>0&&
@@ -561,7 +573,7 @@ export default function App() {
           <span className="header-role-badge" style={{background:`${roleConf.color}22`,color:roleConf.color,borderColor:`${roleConf.color}44`}}>
             {roleConf.label}
           </span>
-          <button className="header-switch-btn" onClick={()=>setRole(null)}>Switch Role</button>
+          <button className="header-switch-btn" onClick={handleSwitchRole}>Switch Role</button>
           <div className="avatar" title={user.name}>{user.initials}</div>
         </div>
       </header>
@@ -873,7 +885,7 @@ export default function App() {
         )}
 
         <div style={{marginTop:'auto',padding:'12px 14px',borderTop:'1px solid rgba(255,255,255,0.06)',flexShrink:0}}>
-          <button onClick={()=>setRole(null)} style={{display:'flex',alignItems:'center',gap:8,width:'100%',background:'none',border:'none',color:'#64748b',fontSize:13,cursor:'pointer',padding:'6px 0',fontFamily:'inherit'}}>
+          <button onClick={handleSwitchRole} style={{display:'flex',alignItems:'center',gap:8,width:'100%',background:'none',border:'none',color:'#64748b',fontSize:13,cursor:'pointer',padding:'6px 0',fontFamily:'inherit'}}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
             </svg>
