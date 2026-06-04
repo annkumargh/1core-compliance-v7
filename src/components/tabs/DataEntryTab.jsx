@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { logFieldChange } from '../../changeLog';
 
 // ─── Attachment + Notes storage ──────────────────────────────────────────────
 const CENTER_ATTACH_KEY = '1core_compliance_v6_center_attachments';
@@ -415,7 +416,7 @@ const SUB_TABS = [
   { id: 'emergency',   label: 'Safety & Emergency' },
 ];
 
-export default function DataEntryTab({ center, liveData = {}, updateData, reg = {}, highlightField, initialSub }) {
+export default function DataEntryTab({ center, liveData = {}, updateData, reg = {}, highlightField, initialSub, userRole = 'Center Director' }) {
   const centerId = center?.id || center?.centerKey || 'default';
   const [sub, setSub] = useState(initialSub || 'licensing');
   const [saved, setSaved] = useState(false);
@@ -522,8 +523,12 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
       liveData.toddlerStaffCount, liveData.preschoolEnrollment, liveData.preschoolStaffCount,
       liveData.schoolAgeEnrollment, liveData.schoolAgeStaffCount, liveData.minStaffOnDuty]); // eslint-disable-line
 
-  // All 287 fields stored flat under canonical dataKey — updateData(key, value)
-  const set = (key, val) => updateData(key, val);
+  // All 288 fields stored flat under canonical dataKey — updateData(key, value)
+  // Every call also logs the change to the field-level change log.
+  const set = (key, val, fieldType = 'discrete') => {
+    logFieldChange(centerId, userRole, key, liveData[key] ?? '', val, fieldType);
+    updateData(key, val);
+  };
 
   const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2500); };
 
@@ -540,10 +545,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
           <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>State max: {maxRatio}</div>
         </div>
         <Field label="Enrolled">
-          <input type="number" min="0" placeholder="0" value={liveData[enrollKey] || ''} onChange={e => set(enrollKey, e.target.value)} />
+          <input type="number" min="0" placeholder="0" value={liveData[enrollKey] || ''} onChange={e => set(enrollKey, e.target.value, 'number')} />
         </Field>
         <Field label="Staff">
-          <input type="number" min="1" placeholder="1" value={liveData[staffKey] || ''} onChange={e => set(staffKey, e.target.value)} />
+          <input type="number" min="1" placeholder="1" value={liveData[staffKey] || ''} onChange={e => set(staffKey, e.target.value, 'number')} />
         </Field>
         <div style={{ paddingBottom: 4 }}>
           {actual !== null
@@ -651,29 +656,29 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
         {sub === 'licensing' && (<>
           <Section title="Operating License">
             <Field label="License number" required chip={`${state}`} fieldKey="licenseNumber">
-              <input placeholder="e.g. TX-123456789" value={liveData.licenseNumber || ''} onChange={e => set('licenseNumber', e.target.value)} />
+              <input placeholder="e.g. TX-123456789" value={liveData.licenseNumber || ''} onChange={e => set('licenseNumber', e.target.value, 'text')} />
             </Field>
             <Field label="License issue date" fieldKey="licenseIssueDate">
-              <input type="date" value={liveData.licenseIssueDate || ''} onChange={e => set('licenseIssueDate', e.target.value)} />
+              <input type="date" value={liveData.licenseIssueDate || ''} onChange={e => set('licenseIssueDate', e.target.value, 'text')} />
             </Field>
             <Field label="License class / type" fieldKey="licenseClass">
-              <select value={liveData.licenseClass || ''} onChange={e => set('licenseClass', e.target.value)}>
+              <select value={liveData.licenseClass || ''} onChange={e => set('licenseClass', e.target.value, 'text')}>
                 <option value="">Select...</option>
                 {['Full license','Provisional license','Conditional license','Exempt'].map(o => <option key={o}>{o}</option>)}
               </select>
             </Field>
             <NoteField fieldKey="licenseClass" centerId={centerId} />
             <Field label="License expiry date" required hint={expiryHint(liveData.licenseExpiry)} fieldKey="licenseExpiry">
-              <input type="date" value={liveData.licenseExpiry || ''} onChange={e => set('licenseExpiry', e.target.value)} />
+              <input type="date" value={liveData.licenseExpiry || ''} onChange={e => set('licenseExpiry', e.target.value, 'text')} />
             </Field>
             <Field label="License renewal date" fieldKey="licenseRenewalDate">
-              <input type="date" value={liveData.licenseRenewalDate || ''} onChange={e => set('licenseRenewalDate', e.target.value)} />
+              <input type="date" value={liveData.licenseRenewalDate || ''} onChange={e => set('licenseRenewalDate', e.target.value, 'text')} />
             </Field>
             <Field label="Licensed capacity (max children)" required fieldKey="licensedCapacity">
-              <input type="number" min="0" value={liveData.licensedCapacity || ''} onChange={e => set('licensedCapacity', e.target.value)} />
+              <input type="number" min="0" value={liveData.licensedCapacity || ''} onChange={e => set('licensedCapacity', e.target.value, 'number')} />
             </Field>
             <Field label="Facility / permit number" fieldKey="facilityNumber">
-              <input placeholder="State-assigned facility number" value={liveData.facilityNumber || ''} onChange={e => set('facilityNumber', e.target.value)} />
+              <input placeholder="State-assigned facility number" value={liveData.facilityNumber || ''} onChange={e => set('facilityNumber', e.target.value, 'text')} />
             </Field>
             <Field label="License certificate on file" required fieldKey="licenseCertOnFile">
               <YesNo value={liveData.licenseCertOnFile || ''} onChange={v => set('licenseCertOnFile', v)} />
@@ -687,19 +692,19 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
 
           <Section title="Insurance">
             <Field label="GL insurance carrier name" fieldKey="glInsuranceProvider">
-              <input placeholder="e.g. Philadelphia Indemnity" value={liveData.glInsuranceProvider || ''} onChange={e => set('glInsuranceProvider', e.target.value)} />
+              <input placeholder="e.g. Philadelphia Indemnity" value={liveData.glInsuranceProvider || ''} onChange={e => set('glInsuranceProvider', e.target.value, 'text')} />
             </Field>
             <Field label="GL policy number" required fieldKey="glPolicyNumber">
-              <input placeholder="Policy #" value={liveData.glPolicyNumber || ''} onChange={e => set('glPolicyNumber', e.target.value)} />
+              <input placeholder="Policy #" value={liveData.glPolicyNumber || ''} onChange={e => set('glPolicyNumber', e.target.value, 'text')} />
             </Field>
             <Field label="GL coverage amount" fieldKey="glCoverageAmount">
-              <input placeholder="e.g. $1,000,000" value={liveData.glCoverageAmount || ''} onChange={e => set('glCoverageAmount', e.target.value)} />
+              <input placeholder="e.g. $1,000,000" value={liveData.glCoverageAmount || ''} onChange={e => set('glCoverageAmount', e.target.value, 'text')} />
             </Field>
             <Field label="GL coverage expiry" required hint={expiryHint(liveData.glExpiry)} fieldKey="glExpiry">
-              <input type="date" value={liveData.glExpiry || ''} onChange={e => set('glExpiry', e.target.value)} />
+              <input type="date" value={liveData.glExpiry || ''} onChange={e => set('glExpiry', e.target.value, 'text')} />
             </Field>
             <Field label="Workers' comp expiry" hint={expiryHint(liveData.workersCompExpiry)} fieldKey="workersCompExpiry">
-              <input type="date" value={liveData.workersCompExpiry || ''} onChange={e => set('workersCompExpiry', e.target.value)} />
+              <input type="date" value={liveData.workersCompExpiry || ''} onChange={e => set('workersCompExpiry', e.target.value, 'text')} />
             </Field>
             <Field label="Workers' comp current" required fieldKey="workersCompCurrent">
               <YesNo value={liveData.workersCompCurrent || ''} onChange={v => set('workersCompCurrent', v)} />
@@ -716,24 +721,24 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
 
           <Section title="Inspections">
             <Field label="Last licensing inspection date" required fieldKey="lastInspectionDate">
-              <input type="date" value={liveData.lastInspectionDate || ''} onChange={e => set('lastInspectionDate', e.target.value)} />
+              <input type="date" value={liveData.lastInspectionDate || ''} onChange={e => set('lastInspectionDate', e.target.value, 'text')} />
             </Field>
             <Field label="Last inspection result" required fieldKey="lastInspectionResult">
-              <select value={liveData.lastInspectionResult || ''} onChange={e => set('lastInspectionResult', e.target.value)}>
+              <select value={liveData.lastInspectionResult || ''} onChange={e => set('lastInspectionResult', e.target.value, 'text')}>
                 <option value="">Select...</option>
                 {['Pass','Pass with conditions','Fail'].map(o => <option key={o}>{o}</option>)}
               </select>
             </Field>
             <NoteField fieldKey="lastInspectionResult" centerId={centerId} />
             <Field label="Open violations count" fieldKey="openViolationsCount">
-              <input type="number" min="0" value={liveData.openViolationsCount || ''} onChange={e => set('openViolationsCount', e.target.value)} />
+              <input type="number" min="0" value={liveData.openViolationsCount || ''} onChange={e => set('openViolationsCount', e.target.value, 'number')} />
             </Field>
             <NoteField fieldKey="openViolationsCount" centerId={centerId} />
             <Field label="Previous inspection date" fieldKey="prevInspectionDate">
-              <input type="date" value={liveData.prevInspectionDate || ''} onChange={e => set('prevInspectionDate', e.target.value)} />
+              <input type="date" value={liveData.prevInspectionDate || ''} onChange={e => set('prevInspectionDate', e.target.value, 'text')} />
             </Field>
             <Field label="Complaint inspections (12 mo)" fieldKey="complaintInspections">
-              <input type="number" min="0" value={liveData.complaintInspections || ''} onChange={e => set('complaintInspections', e.target.value)} />
+              <input type="number" min="0" value={liveData.complaintInspections || ''} onChange={e => set('complaintInspections', e.target.value, 'number')} />
             </Field>
             <Field label="Licensing inspection report on file" required fieldKey="inspectionReportOnFile">
               <YesNo value={liveData.inspectionReportOnFile || ''} onChange={v => set('inspectionReportOnFile', v)} />
@@ -746,13 +751,13 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.qrisEnrolled || ''} onChange={v => set('qrisEnrolled', v)} opts={['Yes','No','In progress']} />
             </Field>
             <Field label="QRIS current rating / level" fieldKey="qrisRating">
-              <select value={liveData.qrisRating || ''} onChange={e => set('qrisRating', e.target.value)}>
+              <select value={liveData.qrisRating || ''} onChange={e => set('qrisRating', e.target.value, 'text')}>
                 <option value="">Select...</option>
                 {['Not enrolled','1 star','2 stars','3 stars','4 stars','5 stars','Level 1','Level 2','Level 3','Level 4'].map(o => <option key={o}>{o}</option>)}
               </select>
             </Field>
             <Field label="QRIS expiry / renewal date" hint={expiryHint(liveData.qrisRenewalDate)} fieldKey="qrisRenewalDate">
-              <input type="date" value={liveData.qrisRenewalDate || ''} onChange={e => set('qrisRenewalDate', e.target.value)} />
+              <input type="date" value={liveData.qrisRenewalDate || ''} onChange={e => set('qrisRenewalDate', e.target.value, 'text')} />
             </Field>
             <RegInfoRow label="QRIS participation type" fieldNum="D1-032" value={reg.qrisType || rules.qrisName || ''} hint="From state regulation data" />
             <UploadRow fieldKey="qris_certificate" centerId={centerId} label="QRIS certificate or award letter" hint="Upload QRIS rating certificate · PDF or JPG · Max 5 MB" />
@@ -767,7 +772,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <RegInfoRow label="Insurance required (state)" fieldNum="D1-033" value={reg.insuranceRequired || ''} />
             <RegInfoRow label="Inspections per year (state min)" fieldNum="D1-034" value={reg.inspPerYear ? String(reg.inspPerYear) : ''} />
             <Field label="State regulation last validated" fieldKey="regLastValidated">
-              <input type="date" value={liveData.regLastValidated || ''} onChange={e => set('regLastValidated', e.target.value)} />
+              <input type="date" value={liveData.regLastValidated || ''} onChange={e => set('regLastValidated', e.target.value, 'text')} />
             </Field>
           </Section>
         </>)}
@@ -776,7 +781,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
         {sub === 'physical' && (<>
           <Section title="Space Measurements" sub={`${state} min: ${reg.indoorSqft || 35} sq ft indoor · ${reg.outdoorSqft || 75} sq ft outdoor per child`}>
             <Field label="Total indoor sq ft" required chip={`min ${reg.indoorSqft || 35} sq ft/child`} fieldKey="indoorSqft">
-              <input type="number" min="0" placeholder="e.g. 4500" value={liveData.indoorSqFtTotal || ''} onChange={e => set('indoorSqFtTotal', e.target.value)} />
+              <input type="number" min="0" placeholder="e.g. 4500" value={liveData.indoorSqFtTotal || ''} onChange={e => set('indoorSqFtTotal', e.target.value, 'number')} />
               {liveData.indoorSqFtTotal && liveData.licensedCapacity && (() => {
                 const per = (parseFloat(liveData.indoorSqFtTotal) / parseFloat(liveData.licensedCapacity)).toFixed(1);
                 const ok = parseFloat(per) >= (reg.indoorSqft || 35);
@@ -784,7 +789,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               })()}
             </Field>
             <Field label="Total outdoor sq ft" required chip={`min ${reg.outdoorSqft || 75} sq ft/child`} fieldKey="outdoorSqft">
-              <input type="number" min="0" placeholder="e.g. 8000" value={liveData.outdoorSqFtTotal || ''} onChange={e => set('outdoorSqFtTotal', e.target.value)} />
+              <input type="number" min="0" placeholder="e.g. 8000" value={liveData.outdoorSqFtTotal || ''} onChange={e => set('outdoorSqFtTotal', e.target.value, 'number')} />
               {liveData.outdoorSqFtTotal && liveData.licensedCapacity && (() => {
                 const per = (parseFloat(liveData.outdoorSqFtTotal) / parseFloat(liveData.licensedCapacity)).toFixed(1);
                 const ok = parseFloat(per) >= (reg.outdoorSqft || 75);
@@ -823,7 +828,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
 
           <Section title="Fixtures & Environment">
             <Field label="Hot water temperature" required chip={`${state} max: ${rules.hotWaterMax || 110}°F`} fieldKey="hotWaterTemp">
-              <input type="number" placeholder="Measure at child fixture" value={liveData.hotWaterTemp || ''} onChange={e => set('hotWaterTemp', e.target.value)} />
+              <input type="number" placeholder="Measure at child fixture" value={liveData.hotWaterTemp || ''} onChange={e => set('hotWaterTemp', e.target.value, 'number')} />
               {liveData.hotWaterTemp && <span className={`hint ${parseFloat(liveData.hotWaterTemp) <= (parseInt(rules.hotWaterMax) || 110) ? 'ok' : 'bad'}`}>
                 State max: {rules.hotWaterMax || 110}°F
               </span>}
@@ -834,7 +839,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
                 ? (parseFloat(liveData.hotWaterTemp) <= (parseInt(rules.hotWaterMax)||110) ? 'Yes — compliant' : 'No — exceeds limit')
                 : ''} />
             <Field label="Child-accessible toilets (count)" chip={`${state}: ${rules.toiletRatio || '1:15'}`} fieldKey="toiletCount">
-              <input type="number" min="0" placeholder="e.g. 7" value={liveData.toiletCount || ''} onChange={e => set('toiletCount', e.target.value)} />
+              <input type="number" min="0" placeholder="e.g. 7" value={liveData.toiletCount || ''} onChange={e => set('toiletCount', e.target.value, 'number')} />
             </Field>
             <RegInfoRow label="State toilet ratio minimum" fieldNum="D2-016" value={rules.toiletRatio || ''} />
             <RegInfoRow label="Toilet ratio (calc)" fieldNum="D2-015"
@@ -842,7 +847,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
                 ? `1:${Math.round(parseFloat(liveData.totalEnrollment)/parseFloat(liveData.toiletCount))}`
                 : ''} hint="Requires toilet count + total enrollment" />
             <Field label="Hand-washing sinks (count)" fieldKey="sinkCount">
-              <input type="number" min="0" value={liveData.sinkCount || ''} onChange={e => set('sinkCount', e.target.value)} />
+              <input type="number" min="0" value={liveData.sinkCount || ''} onChange={e => set('sinkCount', e.target.value, 'number')} />
             </Field>
             <Field label="Safe drinking water accessible" fieldKey="drinkingWater">
               <YesNo value={liveData.drinkingWater || ''} onChange={v => set('drinkingWater', v)} />
@@ -851,7 +856,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
 
           <Section title="Outdoor Safety">
             <Field label="Fencing height (ft)" chip={`${state} min: ${rules.minFencingHeight || 4} ft`} fieldKey="fencingCompliant">
-              <input type="number" step="0.5" placeholder="e.g. 5" value={liveData.fencingHeight || ''} onChange={e => set('fencingHeight', e.target.value)} />
+              <input type="number" step="0.5" placeholder="e.g. 5" value={liveData.fencingHeight || ''} onChange={e => set('fencingHeight', e.target.value, 'number')} />
             </Field>
             <RegInfoRow label="State fencing minimum (ft)" fieldNum="D2-028" value={rules.minFencingHeight ? `${rules.minFencingHeight} ft` : ''} />
             <Field label="Gate self-latching" fieldKey="gateSelfLatching">
@@ -894,19 +899,19 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.smokeDetectors || ''} onChange={v => set('smokeDetectors', v)} />
             </Field>
             <Field label="Smoke detector test date" fieldKey="smokeDetectorTestDate">
-              <input type="date" value={liveData.smokeDetectorTestDate || ''} onChange={e => set('smokeDetectorTestDate', e.target.value)} />
+              <input type="date" value={liveData.smokeDetectorTestDate || ''} onChange={e => set('smokeDetectorTestDate', e.target.value, 'text')} />
             </Field>
             <Field label="CO detectors installed" required chip={`${state}: Required`} fieldKey="coDetector">
               <YesNo value={liveData.coDetectors || ''} onChange={v => set('coDetectors', v)} opts={['Yes','Partial','No','Not applicable']} />
             </Field>
             <Field label="CO detector test date" chip="DC: every 6 months" fieldKey="coDetectorTestDate">
-              <input type="date" value={liveData.coDetectorTestDate || ''} onChange={e => set('coDetectorTestDate', e.target.value)} />
+              <input type="date" value={liveData.coDetectorTestDate || ''} onChange={e => set('coDetectorTestDate', e.target.value, 'text')} />
             </Field>
             <Field label="Fire extinguishers current" required fieldKey="fireExtinguishers">
               <YesNo value={liveData.fireExtinguishers || ''} onChange={v => set('fireExtinguishers', v)} />
             </Field>
             <Field label="Fire extinguisher inspection date" fieldKey="fireExtInspDate">
-              <input type="date" value={liveData.fireExtInspDate || ''} onChange={e => set('fireExtInspDate', e.target.value)} />
+              <input type="date" value={liveData.fireExtInspDate || ''} onChange={e => set('fireExtInspDate', e.target.value, 'text')} />
             </Field>
             <Field label="Emergency lighting functional" fieldKey="emergencyLighting">
               <YesNo value={liveData.emergencyLighting || ''} onChange={v => set('emergencyLighting', v)} />
@@ -918,10 +923,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.facilityInspCurrent || ''} onChange={v => set('facilityInspCurrent', v)} />
             </Field>
             <Field label="Fire department inspection date" fieldKey="fireDeptInspDate">
-              <input type="date" value={liveData.fireDeptInspDate || ''} onChange={e => set('fireDeptInspDate', e.target.value)} />
+              <input type="date" value={liveData.fireDeptInspDate || ''} onChange={e => set('fireDeptInspDate', e.target.value, 'text')} />
             </Field>
             <Field label="Health department inspection date" fieldKey="healthDeptInspDate">
-              <input type="date" value={liveData.healthDeptInspDate || ''} onChange={e => set('healthDeptInspDate', e.target.value)} />
+              <input type="date" value={liveData.healthDeptInspDate || ''} onChange={e => set('healthDeptInspDate', e.target.value, 'text')} />
             </Field>
             <UploadRow fieldKey="fire_ext_tag_photo" centerId={centerId} label="Fire extinguisher inspection tag photo" hint="Photo of fire extinguisher inspection tag · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
             <UploadRow fieldKey="exit_signs_photo" centerId={centerId} label="Exit signs photo" hint="Photo of posted exit signage at required exits · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
@@ -938,13 +943,13 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
 
           <Section title="Staff Counts">
             <Field label="Total staff count" required fieldKey="totalStaffCount">
-              <input type="number" min="0" value={liveData.totalStaffCount || ''} onChange={e => set('totalStaffCount', e.target.value)} />
+              <input type="number" min="0" value={liveData.totalStaffCount || ''} onChange={e => set('totalStaffCount', e.target.value, 'number')} />
             </Field>
             <Field label="Lead teacher count" fieldKey="leadTeacherCount">
-              <input type="number" min="0" value={liveData.leadTeacherCount || ''} onChange={e => set('leadTeacherCount', e.target.value)} />
+              <input type="number" min="0" value={liveData.leadTeacherCount || ''} onChange={e => set('leadTeacherCount', e.target.value, 'number')} />
             </Field>
             <Field label="Aide count" fieldKey="aideCount">
-              <input type="number" min="0" value={liveData.aideCount || ''} onChange={e => set('aideCount', e.target.value)} />
+              <input type="number" min="0" value={liveData.aideCount || ''} onChange={e => set('aideCount', e.target.value, 'number')} />
             </Field>
           </Section>
 
@@ -959,32 +964,32 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
 
           <Section title="Director Qualifications">
             <Field label="Director full name" required fieldKey="directorName">
-              <input placeholder="Full legal name" value={liveData.directorName || ''} onChange={e => set('directorName', e.target.value)} />
+              <input placeholder="Full legal name" value={liveData.directorName || ''} onChange={e => set('directorName', e.target.value, 'text')} />
             </Field>
             <Field label="Director education level" required fieldKey="directorEducation">
-              <select value={liveData.directorEducation || ''} onChange={e => set('directorEducation', e.target.value)}>
+              <select value={liveData.directorEducation || ''} onChange={e => set('directorEducation', e.target.value, 'text')}>
                 <option value="">Select...</option>
                 {['High school diploma / GED','CDA credential',"Associate's — ECE or child development","Bachelor's — ECE or child development","Bachelor's — related field","Master's degree or higher"].map(o => <option key={o}>{o}</option>)}
               </select>
             </Field>
             <Field label="Director ECE credit hours" fieldKey="directorECECredits">
-              <input type="number" min="0" placeholder="e.g. 18" value={liveData.directorECECredits || ''} onChange={e => set('directorECECredits', e.target.value)} />
+              <input type="number" min="0" placeholder="e.g. 18" value={liveData.directorECECredits || ''} onChange={e => set('directorECECredits', e.target.value, 'number')} />
             </Field>
             <Field label="Director years experience" required fieldKey="directorExperience">
-              <input type="number" min="0" step="0.5" value={liveData.directorExperience || ''} onChange={e => set('directorExperience', e.target.value)} />
+              <input type="number" min="0" step="0.5" value={liveData.directorExperience || ''} onChange={e => set('directorExperience', e.target.value, 'number')} />
             </Field>
             <Field label="Director qualification pathway" required fieldKey="directorQualPathway">
-              <select value={liveData.directorQualPathway || ''} onChange={e => set('directorQualPathway', e.target.value)}>
+              <select value={liveData.directorQualPathway || ''} onChange={e => set('directorQualPathway', e.target.value, 'text')}>
                 <option value="">Select...</option>
                 {['CDA — Child Development Associate','State director credential','NAEYC certification','Colorado Shines credential','Other state credential','None required'].map(o => <option key={o}>{o}</option>)}
               </select>
             </Field>
             <NoteField fieldKey="directorQualPathway" centerId={centerId} />
             <Field label="Director credential name" fieldKey="directorCredential">
-              <input placeholder="e.g. FL Director Credential" value={liveData.directorCredential || ''} onChange={e => set('directorCredential', e.target.value)} />
+              <input placeholder="e.g. FL Director Credential" value={liveData.directorCredential || ''} onChange={e => set('directorCredential', e.target.value, 'text')} />
             </Field>
             <Field label="Director credential expiry" hint={expiryHint(liveData.directorCredExpiry)} fieldKey="directorCredExpiry">
-              <input type="date" value={liveData.directorCredExpiry || ''} onChange={e => set('directorCredExpiry', e.target.value)} />
+              <input type="date" value={liveData.directorCredExpiry || ''} onChange={e => set('directorCredExpiry', e.target.value, 'text')} />
             </Field>
             <Field label="Director on duty policy on file" fieldKey="directorOnDutyPolicy">
               <YesNo value={liveData.directorOnDutyPolicy || ''} onChange={v => set('directorOnDutyPolicy', v)} />
@@ -999,7 +1004,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.leadTeacherQualMet || ''} onChange={v => set('leadTeacherQualMet', v)} />
             </Field>
             <Field label="Lead teacher education level" fieldKey="leadTeacherEducation">
-              <select value={liveData.leadTeacherEducation || ''} onChange={e => set('leadTeacherEducation', e.target.value)}>
+              <select value={liveData.leadTeacherEducation || ''} onChange={e => set('leadTeacherEducation', e.target.value, 'text')}>
                 <option value="">Select...</option>
                 {['High school diploma / GED','CDA credential','AA/BA in ECE','12+ ECE credit hours','HS diploma + orientation'].map(o => <option key={o}>{o}</option>)}
               </select>
@@ -1030,10 +1035,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             </Field>
             <NoteField fieldKey="bgCheckComplete" centerId={centerId} />
             <Field label="State BG check clearance date" required fieldKey="stateBgCheckDate">
-              <input type="date" value={liveData.stateBgCheckDate || ''} onChange={e => set('stateBgCheckDate', e.target.value)} />
+              <input type="date" value={liveData.stateBgCheckDate || ''} onChange={e => set('stateBgCheckDate', e.target.value, 'text')} />
             </Field>
             <Field label="FBI fingerprint clearance date" required fieldKey="fbiBgCheckDate">
-              <input type="date" value={liveData.fbiBgCheckDate || ''} onChange={e => set('fbiBgCheckDate', e.target.value)} />
+              <input type="date" value={liveData.fbiBgCheckDate || ''} onChange={e => set('fbiBgCheckDate', e.target.value, 'text')} />
             </Field>
             <Field label="Child abuse registry check" required fieldKey="caRegistryCheck">
               <YesNo value={liveData.caRegistryCheck || ''} onChange={v => set('caRegistryCheck', v)} />
@@ -1052,7 +1057,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.workforceRegistryEnrolled || ''} onChange={v => set('workforceRegistryEnrolled', v)} opts={['Yes','No','Not required']} />
             </Field>
             <Field label="Registry profile ID" fieldKey="registryProfileId">
-              <input placeholder="Registry ID number" value={liveData.registryProfileId || ''} onChange={e => set('registryProfileId', e.target.value)} />
+              <input placeholder="Registry ID number" value={liveData.registryProfileId || ''} onChange={e => set('registryProfileId', e.target.value, 'text')} />
             </Field>
             <Field label="Registry training hours current" fieldKey="registryTrainingCurrent">
               <YesNo value={liveData.registryTrainingCurrent || ''} onChange={v => set('registryTrainingCurrent', v)} />
@@ -1067,10 +1072,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.staffPhysicalOnFile || ''} onChange={v => set('staffPhysicalOnFile', v)} />
             </Field>
             <Field label="Most recent staff physical date" fieldKey="staffPhysicalDate">
-              <input type="date" value={liveData.staffPhysicalDate || ''} onChange={e => set('staffPhysicalDate', e.target.value)} />
+              <input type="date" value={liveData.staffPhysicalDate || ''} onChange={e => set('staffPhysicalDate', e.target.value, 'text')} />
             </Field>
             <Field label="Physical renewal date (DC/state)" chip="DC: annual renewal required" fieldKey="physicalRenewalDate">
-              <input type="date" value={liveData.physicalRenewalDate || ''} onChange={e => set('physicalRenewalDate', e.target.value)} />
+              <input type="date" value={liveData.physicalRenewalDate || ''} onChange={e => set('physicalRenewalDate', e.target.value, 'text')} />
             </Field>
             <RegInfoRow label="Physical exam renewal required (state)" fieldNum="D5-003" value={reg.rules?.physicalRenewal || rules.physicalRenewal || ''} hint="From state regulation" />
             <Field label="Staff health statement current" chip="CO: annual self-report required" fieldKey="staffHealthStatement">
@@ -1096,16 +1101,16 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.tbScreeningComplete || ''} onChange={v => set('tbScreeningComplete', v)} />
             </Field>
             <Field label="Most recent TB test date" required fieldKey="tbTestDate">
-              <input type="date" value={liveData.tbTestDate || ''} onChange={e => set('tbTestDate', e.target.value)} />
+              <input type="date" value={liveData.tbTestDate || ''} onChange={e => set('tbTestDate', e.target.value, 'text')} />
             </Field>
             <Field label="TB test result" fieldKey="tbTestResult">
-              <select value={liveData.tbTestResult || ''} onChange={e => set('tbTestResult', e.target.value)}>
+              <select value={liveData.tbTestResult || ''} onChange={e => set('tbTestResult', e.target.value, 'text')}>
                 <option value="">Select...</option>
                 {['Negative','Positive (managed)','Risk assessment only'].map(o => <option key={o}>{o}</option>)}
               </select>
             </Field>
             <Field label="TB renewal date (if applicable)" hint={expiryHint(liveData.tbRenewalDate)} fieldKey="tbRenewalDate">
-              <input type="date" value={liveData.tbRenewalDate || ''} onChange={e => set('tbRenewalDate', e.target.value)} />
+              <input type="date" value={liveData.tbRenewalDate || ''} onChange={e => set('tbRenewalDate', e.target.value, 'text')} />
             </Field>
             <RegInfoRow label="TB renewal required (state)" fieldNum="D5-010" value={rules.tbTestReq || ''} hint="From state regulation" />
           </Section>
@@ -1115,23 +1120,23 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.cprCertOnFile || ''} onChange={v => set('cprCertOnFile', v)} />
             </Field>
             <Field label="CPR certification type" fieldKey="cprCertType">
-              <select value={liveData.cprCertType || ''} onChange={e => set('cprCertType', e.target.value)}>
+              <select value={liveData.cprCertType || ''} onChange={e => set('cprCertType', e.target.value, 'text')}>
                 <option value="">Select...</option>
                 {['Pediatric CPR + AED + First Aid','Adult + Pediatric CPR + First Aid','BLS','CPR only'].map(o => <option key={o}>{o}</option>)}
               </select>
             </Field>
             <Field label="CPR certification date" fieldKey="cprCertDate">
-              <input type="date" value={liveData.cprCertDate || ''} onChange={e => set('cprCertDate', e.target.value)} />
+              <input type="date" value={liveData.cprCertDate || ''} onChange={e => set('cprCertDate', e.target.value, 'text')} />
             </Field>
             <Field label="CPR expiry date" required hint={expiryHint(liveData.cprExpiry)} fieldKey="cprExpiry">
-              <input type="date" value={liveData.cprExpiry || ''} onChange={e => set('cprExpiry', e.target.value)} />
+              <input type="date" value={liveData.cprExpiry || ''} onChange={e => set('cprExpiry', e.target.value, 'text')} />
             </Field>
             <RegInfoRow label="CPR renewal period (state)" fieldNum="D5-015" value={rules.cprRenewal || ''} hint="From state regulation" />
             <Field label="First aid certification current" required fieldKey="firstAidCurrent">
               <YesNo value={liveData.firstAidCurrent || ''} onChange={v => set('firstAidCurrent', v)} />
             </Field>
             <Field label="CPR-certified staff count" required fieldKey="cprStaffCount">
-              <input type="number" min="0" value={liveData.cprStaffCount || ''} onChange={e => set('cprStaffCount', e.target.value)} />
+              <input type="number" min="0" value={liveData.cprStaffCount || ''} onChange={e => set('cprStaffCount', e.target.value, 'number')} />
             </Field>
             <Field label="Food Protection Manager on site" chip="DC: §155.4 required" fieldKey="foodProtMgr">
               <YesNo value={liveData.foodProtMgr || ''} onChange={v => set('foodProtMgr', v)} opts={['Yes','No','Not required']} />
@@ -1147,10 +1152,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.mrTrainingComplete || ''} onChange={v => set('mrTrainingComplete', v)} />
             </Field>
             <Field label="Mandated reporter training date" fieldKey="mandatedReporter">
-              <input type="date" value={liveData.mrTrainingDate || ''} onChange={e => set('mrTrainingDate', e.target.value)} />
+              <input type="date" value={liveData.mrTrainingDate || ''} onChange={e => set('mrTrainingDate', e.target.value, 'text')} />
             </Field>
             <Field label="MR renewal date (if applicable)" hint={expiryHint(liveData.mrRenewalDate)} fieldKey="mrRenewalDate">
-              <input type="date" value={liveData.mrRenewalDate || ''} onChange={e => set('mrRenewalDate', e.target.value)} />
+              <input type="date" value={liveData.mrRenewalDate || ''} onChange={e => set('mrRenewalDate', e.target.value, 'text')} />
             </Field>
             <RegInfoRow label="MR renewal required (state)" fieldNum="D5-021" value={rules.mandatedReporterRenewal || ''} hint="From state regulation" />
             <Field label="Abuse reporting procedure posted" fieldKey="abuseReportingPosted">
@@ -1165,7 +1170,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
 
           <Section title="Annual Training" sub={`${state} requires ${reg.trainingHrs || 12} hrs/yr for all direct-care staff`}>
             <Field label="Annual training hours completed" required chip={`${state} min: ${reg.trainingHrs || 12} hrs/yr`} fieldKey="trainingHrs">
-              <input type="number" min="0" step="0.5" placeholder="e.g. 14" value={liveData.annualTrainingHrs || ''} onChange={e => set('annualTrainingHrs', e.target.value)} />
+              <input type="number" min="0" step="0.5" placeholder="e.g. 14" value={liveData.annualTrainingHrs || ''} onChange={e => set('annualTrainingHrs', e.target.value, 'number')} />
               {liveData.annualTrainingHrs && (() => {
                 const hrs = parseFloat(liveData.annualTrainingHrs);
                 const req = parseFloat(reg.trainingHrs || 12);
@@ -1205,10 +1210,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.orientationComplete || ''} onChange={v => set('orientationComplete', v)} />
             </Field>
             <Field label="Orientation hours completed" fieldKey="orientationComplete">
-              <input type="number" min="0" placeholder="e.g. 8" value={liveData.orientationHours || ''} onChange={e => set('orientationHours', e.target.value)} />
+              <input type="number" min="0" placeholder="e.g. 8" value={liveData.orientationHours || ''} onChange={e => set('orientationHours', e.target.value, 'number')} />
             </Field>
             <Field label="Orientation completion date" fieldKey="orientationDate">
-              <input type="date" value={liveData.orientationDate || ''} onChange={e => set('orientationDate', e.target.value)} />
+              <input type="date" value={liveData.orientationDate || ''} onChange={e => set('orientationDate', e.target.value, 'text')} />
             </Field>
             <Field label="Emergency preparedness training" chip="CO: required before working with children" fieldKey="emergPrepTraining">
               <YesNo value={liveData.emergPrepTraining || ''} onChange={v => set('emergPrepTraining', v)} />
@@ -1231,22 +1236,22 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
 
           <Section title="Enrollment by Age Group">
             <Field label="Infant enrollment (0–12 mo)" fieldKey="infantEnrollment">
-              <input type="number" min="0" value={liveData.infantEnrollment || ''} onChange={e => set('infantEnrollment', e.target.value)} />
+              <input type="number" min="0" value={liveData.infantEnrollment || ''} onChange={e => set('infantEnrollment', e.target.value, 'number')} />
             </Field>
             <Field label="Young toddler enrollment (12–17 mo)" fieldKey="youngToddlerEnrollment">
-              <input type="number" min="0" value={liveData.youngToddlerEnrollment || ''} onChange={e => set('youngToddlerEnrollment', e.target.value)} />
+              <input type="number" min="0" value={liveData.youngToddlerEnrollment || ''} onChange={e => set('youngToddlerEnrollment', e.target.value, 'number')} />
             </Field>
             <Field label="Older toddler enrollment (18–35 mo)" fieldKey="olderToddlerEnrollment">
-              <input type="number" min="0" value={liveData.olderToddlerEnrollment || ''} onChange={e => set('olderToddlerEnrollment', e.target.value)} />
+              <input type="number" min="0" value={liveData.olderToddlerEnrollment || ''} onChange={e => set('olderToddlerEnrollment', e.target.value, 'number')} />
             </Field>
             <Field label="Preschool enrollment (3–5 yr)" fieldKey="preschoolEnrollment">
-              <input type="number" min="0" value={liveData.preschoolEnrollment || ''} onChange={e => set('preschoolEnrollment', e.target.value)} />
+              <input type="number" min="0" value={liveData.preschoolEnrollment || ''} onChange={e => set('preschoolEnrollment', e.target.value, 'number')} />
             </Field>
             <Field label="School-age enrollment (K+)" fieldKey="schoolAgeEnrollment">
-              <input type="number" min="0" value={liveData.schoolAgeEnrollment || ''} onChange={e => set('schoolAgeEnrollment', e.target.value)} />
+              <input type="number" min="0" value={liveData.schoolAgeEnrollment || ''} onChange={e => set('schoolAgeEnrollment', e.target.value, 'number')} />
             </Field>
             <Field label="Total enrollment" fieldKey="totalEnrollment">
-              <input type="number" min="0" value={liveData.totalEnrollment || ''} onChange={e => set('totalEnrollment', e.target.value)} />
+              <input type="number" min="0" value={liveData.totalEnrollment || ''} onChange={e => set('totalEnrollment', e.target.value, 'number')} />
             </Field>
             {liveData.totalEnrollment && liveData.licensedCapacity && (
               <RegInfoRow label="Enrollment vs capacity ratio" fieldNum="D4-008"
@@ -1284,16 +1289,16 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
 
           <Section title="Group Sizes">
             <Field label="Infant group size" fieldKey="infantGroupSize">
-              <input type="number" min="0" value={liveData.infantGroupSize || ''} onChange={e => set('infantGroupSize', e.target.value)} />
+              <input type="number" min="0" value={liveData.infantGroupSize || ''} onChange={e => set('infantGroupSize', e.target.value, 'number')} />
             </Field>
             <Field label="Toddler group size" fieldKey="toddlerGroupSize">
-              <input type="number" min="0" value={liveData.toddlerGroupSize || ''} onChange={e => set('toddlerGroupSize', e.target.value)} />
+              <input type="number" min="0" value={liveData.toddlerGroupSize || ''} onChange={e => set('toddlerGroupSize', e.target.value, 'number')} />
             </Field>
             <Field label="Preschool group size" fieldKey="preschoolGroupSize">
-              <input type="number" min="0" value={liveData.preschoolGroupSize || ''} onChange={e => set('preschoolGroupSize', e.target.value)} />
+              <input type="number" min="0" value={liveData.preschoolGroupSize || ''} onChange={e => set('preschoolGroupSize', e.target.value, 'number')} />
             </Field>
             <Field label="School-age group size" fieldKey="schoolAgeGroupSize">
-              <input type="number" min="0" value={liveData.schoolAgeGroupSize || ''} onChange={e => set('schoolAgeGroupSize', e.target.value)} />
+              <input type="number" min="0" value={liveData.schoolAgeGroupSize || ''} onChange={e => set('schoolAgeGroupSize', e.target.value, 'number')} />
             </Field>
             <Field label="Mixed-age group present" fieldKey="mixedAgeGroup">
               <YesNo value={liveData.mixedAgeGroup || ''} onChange={v => set('mixedAgeGroup', v)} />
@@ -1309,7 +1314,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.signInLogMaintained || ''} onChange={v => set('signInLogMaintained', v)} />
             </Field>
             <Field label="Sign-in log retention period" fieldKey="signInLogRetention">
-              <input placeholder="e.g. 2 years" value={liveData.signInLogRetention || ''} onChange={e => set('signInLogRetention', e.target.value)} />
+              <input placeholder="e.g. 2 years" value={liveData.signInLogRetention || ''} onChange={e => set('signInLogRetention', e.target.value, 'text')} />
             </Field>
           </Section>
 
@@ -1388,7 +1393,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.emergContactsOnFile || ''} onChange={v => set('emergContactsOnFile', v)} />
             </Field>
             <Field label="Emergency contact count (minimum)" fieldKey="emergContactCount">
-              <input type="number" min="0" placeholder="e.g. 2 per child" value={liveData.emergContactCount || ''} onChange={e => set('emergContactCount', e.target.value)} />
+              <input type="number" min="0" placeholder="e.g. 2 per child" value={liveData.emergContactCount || ''} onChange={e => set('emergContactCount', e.target.value, 'number')} />
             </Field>
             <Field label="Authorized pickup list on file — all children" required fieldKey="authPickupOnFile">
               <YesNo value={liveData.authPickupOnFile || ''} onChange={v => set('authPickupOnFile', v)} />
@@ -1445,7 +1450,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.devScreeningOnFile || ''} onChange={v => set('devScreeningOnFile', v)} opts={['Yes','No','Not applicable']}/>
             </Field>
             <Field label="Most recent child physical date" fieldKey="childPhysicalDate">
-              <input type="date" value={liveData.childPhysicalDate || ''} onChange={e => set('childPhysicalDate', e.target.value)} />
+              <input type="date" value={liveData.childPhysicalDate || ''} onChange={e => set('childPhysicalDate', e.target.value, 'text')} />
             </Field>
             <Field label="Vision and hearing screening" fieldKey="visionHearingScreen">
               <YesNo value={liveData.visionHearingScreen || ''} onChange={v => set('visionHearingScreen', v)} opts={['Yes','No','Not required']} />
@@ -1472,7 +1477,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             </Field>
             <NoteField fieldKey="immRecordsCurrent" centerId={centerId} />
             <Field label="Immunization exemption type" fieldKey="immExemptionType">
-              <select value={liveData.immExemptionType || ''} onChange={e => set('immExemptionType', e.target.value)}>
+              <select value={liveData.immExemptionType || ''} onChange={e => set('immExemptionType', e.target.value, 'text')}>
                 <option value="">Select...</option>
                 {['None','Medical','Religious','Philosophical'].map(o => <option key={o}>{o}</option>)}
               </select>
@@ -1538,7 +1543,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.attendanceRetentionMet || ''} onChange={v => set('attendanceRetentionMet', v)} />
             </Field>
             <Field label="Most recent sign-in log date">
-              <input type="date" value={liveData.attendanceLastDate || ''} onChange={e => set('attendanceLastDate', e.target.value)} />
+              <input type="date" value={liveData.attendanceLastDate || ''} onChange={e => set('attendanceLastDate', e.target.value, 'text')} />
             </Field>
             <Field label="Attendance records stored securely">
               <YesNo value={liveData.attendanceStoredSecurely || ''} onChange={v => set('attendanceStoredSecurely', v)} />
@@ -1557,10 +1562,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.fireEvacPosted || ''} onChange={v => set('fireEvacPosted', v)} />
             </Field>
             <Field label="Last fire drill date" required hint={pastDrillHint(liveData.lastFireDrillDate, 35)} fieldKey="lastFireDrillDate">
-              <input type="date" value={liveData.lastFireDrillDate || ''} onChange={e => set('lastFireDrillDate', e.target.value)} />
+              <input type="date" value={liveData.lastFireDrillDate || ''} onChange={e => set('lastFireDrillDate', e.target.value, 'text')} />
             </Field>
             <Field label="Fire drills completed (12 mo)" required fieldKey="fireDrillsCompleted">
-              <input type="number" min="0" value={liveData.fireDrillsCompleted || ''} onChange={e => set('fireDrillsCompleted', e.target.value)} />
+              <input type="number" min="0" value={liveData.fireDrillsCompleted || ''} onChange={e => set('fireDrillsCompleted', e.target.value, 'number')} />
             </Field>
             <Field label="Fire drill log on file" required fieldKey="fire_drill_log">
               <YesNo value={liveData.fireDrillLog || ''} onChange={v => set('fireDrillLog', v)} />
@@ -1590,10 +1595,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
                 </div>
               : <>
                 <Field label="Last tornado drill date" required hint={pastDrillHint(liveData.lastTornadoDrillDate, rules.tornadoDrill?.includes('Monthly') ? 35 : 200)} fieldKey="lastTornadoDrillDate">
-                  <input type="date" value={liveData.lastTornadoDrillDate || ''} onChange={e => set('lastTornadoDrillDate', e.target.value)} />
+                  <input type="date" value={liveData.lastTornadoDrillDate || ''} onChange={e => set('lastTornadoDrillDate', e.target.value, 'text')} />
                 </Field>
                 <Field label="Tornado drills completed (12 mo)" fieldKey="tornadoDrillsCompleted">
-                  <input type="number" min="0" value={liveData.tornadoDrillsCompleted || ''} onChange={e => set('tornadoDrillsCompleted', e.target.value)} />
+                  <input type="number" min="0" value={liveData.tornadoDrillsCompleted || ''} onChange={e => set('tornadoDrillsCompleted', e.target.value, 'number')} />
                 </Field>
                 <Field label="Tornado drill log on file" fieldKey="tornadoDrillLog">
                   <YesNo value={liveData.tornadoDrillLog || ''} onChange={v => set('tornadoDrillLog', v)} />
@@ -1613,10 +1618,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <RegInfoRow label="Lockdown drill required (state)" fieldNum="D7-015" value={rules.lockdownDrill || ''} hint="From state regulation" />
             <RegInfoRow label="Lockdown drill frequency (state)" fieldNum="D7-017" value={rules.lockdownDrill || ''} hint="From state regulation" />
             <Field label="Last lockdown drill date" required fieldKey="lastLockdownDate">
-              <input type="date" value={liveData.lastLockdownDate || ''} onChange={e => set('lastLockdownDate', e.target.value)} />
+              <input type="date" value={liveData.lastLockdownDate || ''} onChange={e => set('lastLockdownDate', e.target.value, 'text')} />
             </Field>
             <Field label="Lockdown drills completed (12 mo — typically 2)" required fieldKey="lockdownDrillsCompleted">
-              <input type="number" min="0" value={liveData.lockdownDrillsCompleted || ''} onChange={e => set('lockdownDrillsCompleted', e.target.value)} />
+              <input type="number" min="0" value={liveData.lockdownDrillsCompleted || ''} onChange={e => set('lockdownDrillsCompleted', e.target.value, 'number')} />
             </Field>
             <Field label="Lockdown drill log on file" required fieldKey="lockdownDrillLog">
               <YesNo value={liveData.lockdownDrillLog || ''} onChange={v => set('lockdownDrillLog', v)} />
@@ -1666,10 +1671,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.healthInspCurrent || ''} onChange={v => set('healthInspCurrent', v)} />
             </Field>
             <Field label="Health inspection date" required fieldKey="healthInspDate">
-              <input type="date" value={liveData.healthInspDate || ''} onChange={e => set('healthInspDate', e.target.value)} />
+              <input type="date" value={liveData.healthInspDate || ''} onChange={e => set('healthInspDate', e.target.value, 'text')} />
             </Field>
             <Field label="Health inspection result" fieldKey="healthInspResult">
-              <select value={liveData.healthInspResult || ''} onChange={e => set('healthInspResult', e.target.value)}>
+              <select value={liveData.healthInspResult || ''} onChange={e => set('healthInspResult', e.target.value, 'text')}>
                 <option value="">Select...</option>
                 {['Pass','Pass with conditions','Fail'].map(o => <option key={o}>{o}</option>)}
               </select>
@@ -1678,7 +1683,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <YesNo value={liveData.healthInspReportOnFile || ''} onChange={v => set('healthInspReportOnFile', v)} />
             </Field>
             <Field label="Open health violations count" fieldKey="openHealthViolations">
-              <input type="number" min="0" value={liveData.openHealthViolations || ''} onChange={e => set('openHealthViolations', e.target.value)} />
+              <input type="number" min="0" value={liveData.openHealthViolations || ''} onChange={e => set('openHealthViolations', e.target.value, 'number')} />
             </Field>
             <NoteField fieldKey="openHealthViolations" centerId={centerId} />
             <Field label="Food service permit current" fieldKey="foodServicePermit">
