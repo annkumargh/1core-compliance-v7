@@ -581,7 +581,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
       <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid #f1f5f9' }}>
         <h3 style={{ marginBottom: 4 }}>Data Entry — {center.name}</h3>
         <p className="card-sub" style={{ marginBottom: 4 }}>
-          7 domains · 287 fields · All data saves automatically and updates compliance scores in real time.
+          7 domains · 288 fields · All data saves automatically and updates compliance scores in real time.
           <strong style={{ color: '#00a99d' }}> Scores update as you type.</strong>
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
