@@ -979,9 +979,10 @@ export default function App() {
         {role==='superadmin' && saMode==='center' && (() => {
           const co = COMPANIES.find(c => c.centers.some(x => x.id === selectedId));
           return (
-            <div style={{display:'flex',flexDirection:'column',height:'100%',overflow:'hidden'}}>
-              {/* ── SA Breadcrumb Header ── */}
+            <div style={{display:'flex',flexDirection:'column',minHeight:'100%'}}>
+              {/* ── SA Breadcrumb Header — sticky so it stays visible while content scrolls ── */}
               <div style={{
+                position:'sticky',top:0,zIndex:50,
                 background:'#1e293b',borderBottom:'1px solid #334155',
                 padding:'10px 24px',display:'flex',alignItems:'center',
                 justifyContent:'space-between',flexShrink:0,
@@ -1010,7 +1011,7 @@ export default function App() {
                   whiteSpace:'nowrap',
                 }}>SUPER ADMIN MODE</span>
               </div>
-              <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+              <div style={{flex:1}}>
                 <CenterDirectorView
                   center={centerViewData}
                   activeTab={activeTab}
