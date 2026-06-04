@@ -1,16 +1,24 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 
 const sc = s => s>=80?'#2d7a4f':s>=60?'#b45309':s!==null?'#b91c1c':'#94a3b8';
 const sl = s => s>=80?'Compliant':s>=60?'At Risk':s!==null?'Non-Compliant':'No Data';
 const sbg = s => s>=80?'#eef7f2':s>=60?'#fdf4e7':s!==null?'#fdf1f1':'#f8fafc';
 const sbd = s => s>=80?'#a7d4ba':s>=60?'#e6b87a':s!==null?'#e8a0a0':'#e2e8f0';
 
-export default function SuperAdminView({ allData={}, companies=[], allCenters=[], lionheartSeed={}, scoreColor, onSelectCenter }) {
+export default function SuperAdminView({ allData={}, companies=[], allCenters=[], lionheartSeed={}, scoreColor, onSelectCenter, onSelectCompany, initialCompanyView=null }) {
   const [search,      setSearch]    = useState('');
   const [sortBy,      setSortBy]    = useState('name');
   const [expanded,    setExpanded]  = useState(null);
-  const [activeView,  setActiveView]= useState('companies'); // 'companies' | 'company-view'
-  const [companyView, setCompanyView] = useState(null);
+  const [activeView,  setActiveView]= useState(initialCompanyView ? 'company-view' : 'companies');
+  const [companyView, setCompanyView] = useState(initialCompanyView);
+
+  // Sync when SA clicks a company in the sidebar (prop changes)
+  useEffect(() => {
+    if (initialCompanyView) {
+      setCompanyView(initialCompanyView);
+      setActiveView('company-view');
+    }
+  }, [initialCompanyView?.id]); // eslint-disable-line
 
   const enriched = useMemo(() => companies.map(co => {
     const centers = co.centers;
@@ -74,7 +82,7 @@ export default function SuperAdminView({ allData={}, companies=[], allCenters=[]
     return (
       <div style={{ display:'flex',flexDirection:'column',height:'100%',overflowY:'auto',background:'#f8fafc' }}>
         <div style={{ background:'#fff',borderBottom:'1px solid #e2e8f0',padding:'20px 28px' }}>
-          <button onClick={() => setActiveView('companies')} style={{
+          <button onClick={() => { setActiveView('companies'); if(onSelectCompany) onSelectCompany(null); }} style={{
             display:'flex', alignItems:'center', gap:8, background:'none', border:'1px solid #e2e8f0',
             borderRadius:8, padding:'7px 14px', cursor:'pointer', fontSize:13, color:'#64748b',
             fontFamily:'inherit', marginBottom:16, fontWeight:500,
@@ -209,7 +217,7 @@ export default function SuperAdminView({ allData={}, companies=[], allCenters=[]
                     </td>
                     <td style={{ padding:'13px 16px' }}>
                       <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                        <button onClick={()=>{ setCompanyView(co); setActiveView('company-view'); }}
+                        <button onClick={()=>{ setCompanyView(co); setActiveView('company-view'); if(onSelectCompany) onSelectCompany(co); }}
                           style={{ fontSize:11, fontWeight:600, padding:'4px 10px', borderRadius:6,
                             border:'1px solid #c5cbee', background:'#f0f2ff', color:'#4f5fa8',
                             cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}>
