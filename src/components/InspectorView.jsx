@@ -3,6 +3,7 @@ import { getReg } from '../regulations';
 import { LIONHEART_SEED } from '../lionheartSeed';
 import { CENTERS } from '../centers';
 import StateRulesTab from './tabs/StateRulesTab';
+import ChangeLogTab  from './tabs/ChangeLogTab';
 import InspectionReportExport from './tabs/InspectionReportExport';
 
 const SESSION_HOURS=8, LS_KEY_MAIN='1core_compliance_v6', LS_KEY_FINDINGS='1core_compliance_v6_inspector_findings', LS_KEY_PHOTOS='1core_compliance_v6_inspector_photos', LS_KEY_FIELDCFG='1core_compliance_v6_inspector_fieldcfg', DEFAULT_CENTER_ID='1292_Lionheart_-_RCCO';
@@ -825,6 +826,7 @@ export default function InspectorView({activeTab='overview',userRole='inspector'
   if(activeTab==='insphistory')  return <InspectionHistoryTab centerName={centerName} centerState={centerState} reg={reg}/>;
   if(activeTab==='opencap')      return <OpenCAPTab centerName={centerName} findings={findings}/>;
   if(activeTab==='documents')    return <DocumentsTab centerName={centerName}/>;
+  if(activeTab==='changelog')    return <ChangeLogTab center={centerForTabs} userRole="inspector"/>;
   if(activeTab==='centerprofile')return <CenterProfileTab centerName={centerName} centerCity={centerCity} centerState={centerState} reg={reg} liveData={liveData}/>;
 
   // ── Screen routing ───────────────────────────────────────────────────────────

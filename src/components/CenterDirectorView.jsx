@@ -7,6 +7,7 @@ import HistoryTab     from './tabs/HistoryTab';
 import DataEntryTab   from './tabs/DataEntryTab';
 import RatiosTab      from './tabs/RatiosTab';
 import HelpTab        from './tabs/HelpTab';
+import ChangeLogTab   from './tabs/ChangeLogTab';
 import InspectionView           from './tabs/InspectionView';
 import CorrectiveActionPlanTab  from './tabs/CorrectiveActionPlanTab';
 import AuditSimTab              from './tabs/AuditSimTab';
@@ -119,6 +120,7 @@ export default function CenterDirectorView({
                 activeTab==='dataentry' ? 'Data Entry' :
                 activeTab==='auditsim'  ? 'Audit Simulation' :
                 activeTab==='history'   ? 'History' :
+                activeTab==='changelog' ? 'Change Log' :
                 activeTab==='help'      ? 'Help & Glossary' : ''
               }
             </span>
@@ -137,6 +139,7 @@ export default function CenterDirectorView({
         {activeTab==='auditsim'   && <AuditSimTab    center={center} reg={reg} liveData={liveData}/>}
         {activeTab==='staterules' && <StateRulesTab  center={center} reg={reg} userRole={userRole}/>}
         {activeTab==='history'    && <HistoryTab     center={center} scoreColor={scoreColor}/>}
+        {activeTab==='changelog'  && <ChangeLogTab   center={center} userRole={userRole}/>}
         {activeTab==='dataentry'  && (
           <DataEntryTab
             key={`de-${deHighlight}-${deInitialSub}`}
@@ -146,6 +149,7 @@ export default function CenterDirectorView({
             reg={reg}
             highlightField={deHighlight}
             initialSub={deInitialSub}
+            userRole={userRole}
           />
         )}
         {activeTab==='help'       && <HelpTab/>}
