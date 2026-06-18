@@ -2,15 +2,47 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { logFieldChange } from '../../changeLog';
 
 // ─── Attachment + Notes storage ──────────────────────────────────────────────
-const CENTER_ATTACH_KEY = '1core_compliance_v6_center_attachments';
-const CENTER_NOTES_KEY  = '1core_compliance_v6_center_notes';
+// Legacy single-file key kept for migration reads only
+const CENTER_ATTACH_KEY   = '1core_compliance_v6_center_attachments';
+// New versioned-document store
+const CENTER_DOCVER_KEY   = '1core_compliance_v7_docversions';
+const CENTER_NOTES_KEY    = '1core_compliance_v6_center_notes';
 
-function loadCenterAttachments() {
+// ── legacy (read-only, for one-time migration) ────────────────────────────────
+function loadLegacyAttachments() {
   try { return JSON.parse(localStorage.getItem(CENTER_ATTACH_KEY) || '{}'); } catch { return {}; }
 }
-function saveCenterAttachments(data) {
-  try { localStorage.setItem(CENTER_ATTACH_KEY, JSON.stringify(data)); } catch {}
+
+// ── versioned document store ──────────────────────────────────────────────────
+// Schema: { [centerId]: { [fieldKey]: Version[] } }  newest-first, unlimited
+// Version shape: { id, name, size, type, uploadedAt, uploadedBy, data }
+function loadDocVersions() {
+  try { return JSON.parse(localStorage.getItem(CENTER_DOCVER_KEY) || '{}'); } catch { return {}; }
 }
+function saveDocVersions(data) {
+  try { localStorage.setItem(CENTER_DOCVER_KEY, JSON.stringify(data)); } catch {}
+}
+
+// On first access for a fieldKey, migrate any existing legacy single-file entry.
+function migrateIfNeeded(centerId, fieldKey) {
+  const all = loadDocVersions();
+  if (all[centerId]?.[fieldKey]) return; // already versioned — skip
+  const legacy = loadLegacyAttachments();
+  const old = legacy[centerId]?.[fieldKey];
+  if (!old) return;
+  if (!all[centerId]) all[centerId] = {};
+  all[centerId][fieldKey] = [{
+    id:         `v_migrated_${Date.now()}`,
+    name:       old.name,
+    size:       old.size,
+    type:       old.type,
+    uploadedAt: old.uploadedAt || new Date().toISOString(),
+    uploadedBy: 'Migrated',
+    data:       old.data,
+  }];
+  saveDocVersions(all);
+}
+
 function loadCenterNotes() {
   try { return JSON.parse(localStorage.getItem(CENTER_NOTES_KEY) || '{}'); } catch { return {}; }
 }
@@ -97,10 +129,29 @@ function NoteToggle({ fieldKey, entityId, storageLoader, storageSaver, matchHeig
 }
 
 // ─── CenterFileUpload ─────────────────────────────────────────────────────────
-function CenterFileUpload({ fieldKey, centerId = 'default', label, hint, accept = '.pdf,.jpg,.jpeg,.png', isPhoto = false }) {
+// Versioned: uploading a new file prepends to the version stack (newest first).
+// versions[0] is always the current version. All past versions are preserved and
+// downloadable. Nothing is pruned automatically.
+// New localStorage key: 1core_compliance_v7_docversions
+// Legacy 1core_compliance_v6_center_attachments data is migrated on first access.
+function CenterFileUpload({ fieldKey, centerId = 'default', label, hint, accept = '.pdf,.jpg,.jpeg,.png', isPhoto = false, userRole = 'Center Director' }) {
   const inputRef = useRef();
-  const [attachments, setAttachments] = useState(() => loadCenterAttachments());
-  const stored = attachments[centerId]?.[fieldKey];
+
+  // Run legacy migration once on mount
+  useEffect(() => { migrateIfNeeded(centerId, fieldKey); }, [centerId, fieldKey]); // eslint-disable-line
+
+  const [versions, setVersions] = useState(() => {
+    migrateIfNeeded(centerId, fieldKey);
+    return loadDocVersions()[centerId]?.[fieldKey] || [];
+  });
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const current = versions[0] || null;
+  const past    = versions.slice(1);
+
+  const fmtSize     = s => s < 1024 * 1024 ? `${Math.round(s / 1024)} KB` : `${(s / 1024 / 1024).toFixed(1)} MB`;
+  const fmtDate     = d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const fmtDateTime = d => new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 
   const handleFile = useCallback((e) => {
     const file = e.target.files?.[0];
@@ -108,85 +159,156 @@ function CenterFileUpload({ fieldKey, centerId = 'default', label, hint, accept 
     const maxBytes = 5 * 1024 * 1024;
     if (file.size > maxBytes) {
       alert('File exceeds 5 MB limit. Please compress and try again.');
+      e.target.value = '';
       return;
     }
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const all = loadCenterAttachments();
-      if (!all[centerId]) all[centerId] = {};
-      all[centerId][fieldKey] = {
-        name: file.name,
-        size: file.size,
-        type: file.type,
+      const newVersion = {
+        id:         'v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        name:       file.name,
+        size:       file.size,
+        type:       file.type,
         uploadedAt: new Date().toISOString(),
-        data: ev.target.result,
+        uploadedBy: userRole,
+        data:       ev.target.result,
       };
-      saveCenterAttachments(all);
-      setAttachments({ ...all });
+      const all = loadDocVersions();
+      if (!all[centerId]) all[centerId] = {};
+      const prev = all[centerId][fieldKey] || [];
+      const next = [newVersion, ...prev];
+      all[centerId][fieldKey] = next;
+      saveDocVersions(all);
+      setVersions(next);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
+  }, [fieldKey, centerId, userRole]);
+
+  // Remove current version — promotes previous version, or clears entirely
+  const handleRemoveCurrent = useCallback(() => {
+    if (!window.confirm('Remove this version? Previous versions (if any) will remain accessible.')) return;
+    const all = loadDocVersions();
+    if (!all[centerId]?.[fieldKey]) return;
+    const next = all[centerId][fieldKey].slice(1);
+    if (next.length === 0) { delete all[centerId][fieldKey]; } else { all[centerId][fieldKey] = next; }
+    saveDocVersions(all);
+    setVersions(next);
   }, [fieldKey, centerId]);
 
-  const handleRemove = useCallback(() => {
-    const all = loadCenterAttachments();
-    if (all[centerId]) delete all[centerId][fieldKey];
-    saveCenterAttachments(all);
-    setAttachments({ ...all });
+  // Permanently delete a specific past version by id
+  const handleRemovePast = useCallback((id) => {
+    if (!window.confirm('Permanently delete this version? This cannot be undone.')) return;
+    const all = loadDocVersions();
+    if (!all[centerId]?.[fieldKey]) return;
+    const next = all[centerId][fieldKey].filter(v => v.id !== id);
+    if (next.length === 0) { delete all[centerId][fieldKey]; } else { all[centerId][fieldKey] = next; }
+    saveDocVersions(all);
+    setVersions(next);
   }, [fieldKey, centerId]);
 
-  const isImage = stored?.type?.startsWith('image/');
-  const fmtSize = s => s < 1024 * 1024 ? `${Math.round(s / 1024)} KB` : `${(s / 1024 / 1024).toFixed(1)} MB`;
-  const fmtDate = d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-  if (stored) {
+  // ── No file uploaded yet ──────────────────────────────────────────────────
+  if (!current) {
+    const defaultHint = isPhoto
+      ? 'JPG or PNG · Max 5 MB · Min 800×600 px recommended'
+      : 'PDF, JPG, or PNG · Max 5 MB';
     return (
-      <div>
-        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', border:'1px solid #a7d4ba', borderRadius:8, background:'#eef7f2', marginTop:4 }}>
-          {isImage
-            ? <img src={stored.data} alt={stored.name} style={{ width:32, height:32, objectFit:'cover', borderRadius:4, border:'1px solid #a7d4ba', flexShrink:0 }} />
-            : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2d7a4f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <div style={{ display:'flex', flexDirection:'column', flex:1, height:'100%' }}>
+        <div
+          onClick={() => inputRef.current?.click()}
+          style={{ display:'flex', alignItems:'center', flex:1, gap:10, padding:'9px 12px', border:'1.5px dashed #cbd5e1', borderRadius:8, background:'#f8fafc', cursor:'pointer', marginTop:4, transition:'border-color 0.15s' }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = '#00a99d'}
+          onMouseLeave={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+        >
+          {isPhoto
+            ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
           }
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:12.5, fontWeight:600, color:'#1e5c38', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{stored.name}</div>
-            <div style={{ fontSize:11.5, color:'#2d7a4f' }}>Uploaded {fmtDate(stored.uploadedAt)} · {fmtSize(stored.size)}</div>
+          <div>
+            <div style={{ fontSize:12.5, color:'#374151', fontWeight:500 }}>{label || (isPhoto ? 'Click to upload photo' : 'Click to upload')}</div>
+            <div style={{ fontSize:11.5, color:'#94a3b8' }}>{hint || defaultHint}</div>
           </div>
-          <a href={stored.data} download={stored.name} style={{ padding:'4px 10px', borderRadius:6, border:'1px solid #a7d4ba', background:'#fff', color:'#2d7a4f', fontSize:12, fontWeight:500, textDecoration:'none', whiteSpace:'nowrap' }}>Download</a>
-          <button onClick={handleRemove} style={{ padding:'4px 10px', borderRadius:6, border:'1px solid #e8a0a0', background:'#fdf1f1', color:'#b91c1c', fontSize:12, fontWeight:500, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}>Remove</button>
-          <input ref={inputRef} type="file" accept={accept} onChange={handleFile} style={{ display:'none' }} />
         </div>
+        <input ref={inputRef} type="file" accept={accept} onChange={handleFile} style={{ display:'none' }} />
       </div>
     );
   }
 
-  const defaultHint = isPhoto
-    ? 'JPG or PNG · Max 5 MB · Min 800×600 px recommended'
-    : 'PDF, JPG, or PNG · Max 5 MB';
+  // ── Current version present ───────────────────────────────────────────────
+  const isImage = current.type?.startsWith('image/');
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', flex:1, height:'100%' }}>
-      <div
-        onClick={() => inputRef.current?.click()}
-        style={{ display:'flex', alignItems:'center', flex:1, gap:10, padding:'9px 12px', border:'1.5px dashed #cbd5e1', borderRadius:8, background:'#f8fafc', cursor:'pointer', marginTop:4, transition:'border-color 0.15s' }}
-        onMouseEnter={e => e.currentTarget.style.borderColor = '#00a99d'}
-        onMouseLeave={e => e.currentTarget.style.borderColor = '#cbd5e1'}
-      >
-        {isPhoto
-          ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+    <div style={{ marginTop:4 }}>
+      {/* ── Current version row ── */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', border:'1px solid #a7d4ba', borderRadius:8, background:'#eef7f2' }}>
+        {isImage
+          ? <img src={current.data} alt={current.name} style={{ width:32, height:32, objectFit:'cover', borderRadius:4, border:'1px solid #a7d4ba', flexShrink:0 }} />
+          : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2d7a4f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         }
-        <div>
-          <div style={{ fontSize:12.5, color:'#374151', fontWeight:500 }}>{label || (isPhoto ? 'Click to upload photo' : 'Click to upload')}</div>
-          <div style={{ fontSize:11.5, color:'#94a3b8' }}>{hint || defaultHint}</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+            <span style={{ fontSize:10.5, fontWeight:700, color:'#fff', background:'#2d7a4f', borderRadius:3, padding:'1px 5px', letterSpacing:'0.03em', flexShrink:0 }}>CURRENT</span>
+            <span style={{ fontSize:12.5, fontWeight:600, color:'#1e5c38', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{current.name}</span>
+          </div>
+          <div style={{ fontSize:11.5, color:'#2d7a4f', marginTop:2 }}>
+            {fmtDate(current.uploadedAt)} &middot; {fmtSize(current.size)} &middot; {current.uploadedBy}
+          </div>
         </div>
+        <a href={current.data} download={current.name} style={{ padding:'4px 10px', borderRadius:6, border:'1px solid #a7d4ba', background:'#fff', color:'#2d7a4f', fontSize:12, fontWeight:500, textDecoration:'none', whiteSpace:'nowrap' }}>Download</a>
+        <button onClick={() => inputRef.current?.click()} style={{ padding:'4px 10px', borderRadius:6, border:'1px solid #93c5fd', background:'#eff6ff', color:'#1d4ed8', fontSize:12, fontWeight:500, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}>Replace</button>
+        <button onClick={handleRemoveCurrent} style={{ padding:'4px 10px', borderRadius:6, border:'1px solid #e8a0a0', background:'#fdf1f1', color:'#b91c1c', fontSize:12, fontWeight:500, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}>Remove</button>
+        <input ref={inputRef} type="file" accept={accept} onChange={handleFile} style={{ display:'none' }} />
       </div>
-      <input ref={inputRef} type="file" accept={accept} onChange={handleFile} style={{ display:'none' }} />
+
+      {/* ── Version history drawer ── */}
+      {past.length > 0 && (
+        <div style={{ marginTop:4 }}>
+          <button
+            onClick={() => setHistoryOpen(o => !o)}
+            style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:6, border:'1px solid #e2e8f0', background:'#f8fafc', color:'#64748b', fontSize:11.5, fontWeight:500, cursor:'pointer', fontFamily:'inherit' }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              style={{ transform: historyOpen ? 'rotate(180deg)' : 'none', transition:'transform 0.15s' }}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+            {historyOpen ? 'Hide' : 'Show'} version history &middot; {past.length} older {past.length === 1 ? 'version' : 'versions'}
+          </button>
+
+          {historyOpen && (
+            <div style={{ marginTop:5, border:'1px solid #e2e8f0', borderRadius:8, overflow:'hidden' }}>
+              <div style={{ padding:'6px 12px', background:'#f8fafc', borderBottom:'1px solid #e2e8f0', display:'flex', alignItems:'center', gap:6 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span style={{ fontSize:11, fontWeight:600, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em' }}>Version History</span>
+                <span style={{ fontSize:11, color:'#94a3b8' }}>&mdash; all previous uploads preserved &amp; downloadable</span>
+              </div>
+              {past.map((v, idx) => {
+                const vIsImg = v.type?.startsWith('image/');
+                return (
+                  <div key={v.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', borderBottom: idx < past.length - 1 ? '1px solid #f1f5f9' : 'none', background:'#fff' }}>
+                    {vIsImg
+                      ? <img src={v.data} alt={v.name} style={{ width:24, height:24, objectFit:'cover', borderRadius:3, border:'1px solid #e2e8f0', flexShrink:0 }} />
+                      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    }
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:12, fontWeight:500, color:'#475569', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v.name}</div>
+                      <div style={{ fontSize:11, color:'#94a3b8', marginTop:1 }}>{fmtDateTime(v.uploadedAt)} &middot; {fmtSize(v.size)} &middot; {v.uploadedBy}</div>
+                    </div>
+                    <span style={{ fontSize:11, fontWeight:600, color:'#94a3b8', background:'#f1f5f9', borderRadius:3, padding:'1px 6px', whiteSpace:'nowrap', flexShrink:0 }}>v{past.length - idx}</span>
+                    <a href={v.data} download={v.name} style={{ padding:'3px 8px', borderRadius:5, border:'1px solid #e2e8f0', background:'#f8fafc', color:'#64748b', fontSize:11.5, fontWeight:500, textDecoration:'none', whiteSpace:'nowrap', flexShrink:0 }}>Download</a>
+                    <button onClick={() => handleRemovePast(v.id)} style={{ padding:'3px 8px', borderRadius:5, border:'1px solid #f3c6c6', background:'#fdf1f1', color:'#b91c1c', fontSize:11.5, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap', flexShrink:0 }}>Delete</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 // UploadRow: upload slot (left) + note panel (right, same height)
-function UploadRow({ fieldKey, centerId, label, hint, isPhoto = false }) {
+function UploadRow({ fieldKey, centerId, label, hint, isPhoto = false, userRole = 'Center Director' }) {
   return (
     <div style={{ gridColumn:'1/-1' }} id={fieldKey ? `field-${fieldKey}` : undefined}>
       <div style={{ display:'flex', alignItems:'center', gap:8, margin:'4px 0 6px' }}>
@@ -198,7 +320,7 @@ function UploadRow({ fieldKey, centerId, label, hint, isPhoto = false }) {
       </div>
       <div style={{ display:'flex', alignItems:'stretch', gap:16 }}>
         <div style={{ flex:'0 0 50%', minWidth:0, display:'flex', flexDirection:'column' }}>
-          <CenterFileUpload fieldKey={fieldKey} centerId={centerId} label={isPhoto ? 'Click to upload photo' : 'Click to upload document'} hint={hint} isPhoto={isPhoto} />
+          <CenterFileUpload fieldKey={fieldKey} centerId={centerId} label={isPhoto ? 'Click to upload photo' : 'Click to upload document'} hint={hint} isPhoto={isPhoto} userRole={userRole} />
         </div>
         <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column' }}>
           <div style={{ flex:1, display:'flex', flexDirection:'column' }}>
@@ -686,8 +808,8 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Required notices posted visibly" fieldKey="postedNotices">
               <YesNo value={liveData.postedNotices || ''} onChange={v => set('postedNotices', v)} />
             </Field>
-            <UploadRow fieldKey="license_cert" centerId={centerId} label="License certificate" hint="Upload scan of state-issued license certificate · PDF or JPG · Max 5 MB" />
-            <UploadRow fieldKey="posted_notices_photo" centerId={centerId} label="Posted notices photo" hint="Photo showing required notices posted in center · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
+            <UploadRow fieldKey="license_cert" centerId={centerId} label="License certificate" hint="Upload scan of state-issued license certificate · PDF or JPG · Max 5 MB" userRole={userRole} />
+            <UploadRow fieldKey="posted_notices_photo" centerId={centerId} label="Posted notices photo" hint="Photo showing required notices posted in center · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto userRole={userRole} />
           </Section>
 
           <Section title="Insurance">
@@ -715,8 +837,8 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Property insurance on file" fieldKey="propertyInsurance">
               <YesNo value={liveData.propertyInsurance || ''} onChange={v => set('propertyInsurance', v)} />
             </Field>
-            <UploadRow fieldKey="gl_coi" centerId={centerId} label="Certificate of Insurance (COI)" hint="Upload current Certificate of Insurance · PDF · Max 5 MB" />
-            <UploadRow fieldKey="workers_comp_cert" centerId={centerId} label="Workers comp certificate" hint="Upload workers compensation certificate or policy proof · PDF · Max 5 MB" />
+            <UploadRow fieldKey="gl_coi" centerId={centerId} label="Certificate of Insurance (COI)" hint="Upload current Certificate of Insurance · PDF · Max 5 MB" userRole={userRole} />
+            <UploadRow fieldKey="workers_comp_cert" centerId={centerId} label="Workers comp certificate" hint="Upload workers compensation certificate or policy proof · PDF · Max 5 MB" userRole={userRole} />
           </Section>
 
           <Section title="Inspections">
@@ -743,7 +865,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Licensing inspection report on file" required fieldKey="inspectionReportOnFile">
               <YesNo value={liveData.inspectionReportOnFile || ''} onChange={v => set('inspectionReportOnFile', v)} />
             </Field>
-            <UploadRow fieldKey="inspection_report" centerId={centerId} label="Licensing inspection report" hint="Upload most recent state licensing inspection report · PDF · Max 5 MB" />
+            <UploadRow fieldKey="inspection_report" centerId={centerId} label="Licensing inspection report" hint="Upload most recent state licensing inspection report · PDF · Max 5 MB" userRole={userRole} />
           </Section>
 
           <Section title="QRIS & Agency" sub={`${rules.qrisName || 'State Quality Rating System'}`}>
@@ -760,7 +882,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
               <input type="date" value={liveData.qrisRenewalDate || ''} onChange={e => set('qrisRenewalDate', e.target.value, 'text')} />
             </Field>
             <RegInfoRow label="QRIS participation type" fieldNum="D1-032" value={reg.qrisType || rules.qrisName || ''} hint="From state regulation data" />
-            <UploadRow fieldKey="qris_certificate" centerId={centerId} label="QRIS certificate or award letter" hint="Upload QRIS rating certificate · PDF or JPG · Max 5 MB" />
+            <UploadRow fieldKey="qris_certificate" centerId={centerId} label="QRIS certificate or award letter" hint="Upload QRIS rating certificate · PDF or JPG · Max 5 MB" userRole={userRole} />
           </Section>
 
           <Section title="State Regulatory Reference" sub="Read-only — sourced from validated state regulation data">
@@ -822,8 +944,8 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Floor plan on file" fieldKey="floorPlanOnFile">
               <YesNo value={liveData.floorPlanOnFile || ''} onChange={v => set('floorPlanOnFile', v)} />
             </Field>
-            <UploadRow fieldKey="room_capacity_photo" centerId={centerId} label="Room capacity sign photo" hint="Photo of posted capacity sign in each room · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
-            <UploadRow fieldKey="floor_plan" centerId={centerId} label="Floor plan" hint="Upload current floor plan filed with licensing agency · PDF or JPG · Max 5 MB" />
+            <UploadRow fieldKey="room_capacity_photo" centerId={centerId} label="Room capacity sign photo" hint="Photo of posted capacity sign in each room · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto userRole={userRole} />
+            <UploadRow fieldKey="floor_plan" centerId={centerId} label="Floor plan" hint="Upload current floor plan filed with licensing agency · PDF or JPG · Max 5 MB" userRole={userRole} />
           </Section>
 
           <Section title="Fixtures & Environment">
@@ -871,8 +993,8 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Equipment age-appropriate and in good repair" fieldKey="equipmentAgeAppropriate">
               <YesNo value={liveData.equipmentAgeAppropriate || ''} onChange={v => set('equipmentAgeAppropriate', v)} />
             </Field>
-            <UploadRow fieldKey="gate_photo" centerId={centerId} label="Self-latching gate photo" hint="Photo showing self-latching mechanism on outdoor gate · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
-            <UploadRow fieldKey="surfacing_photo" centerId={centerId} label="Resilient surfacing photo" hint="Photo of playground surfacing material under climbing equipment · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
+            <UploadRow fieldKey="gate_photo" centerId={centerId} label="Self-latching gate photo" hint="Photo showing self-latching mechanism on outdoor gate · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto userRole={userRole} />
+            <UploadRow fieldKey="surfacing_photo" centerId={centerId} label="Resilient surfacing photo" hint="Photo of playground surfacing material under climbing equipment · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto userRole={userRole} />
           </Section>
 
           <Section title="Safety & Hazards">
@@ -928,9 +1050,9 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Health department inspection date" fieldKey="healthDeptInspDate">
               <input type="date" value={liveData.healthDeptInspDate || ''} onChange={e => set('healthDeptInspDate', e.target.value, 'text')} />
             </Field>
-            <UploadRow fieldKey="fire_ext_tag_photo" centerId={centerId} label="Fire extinguisher inspection tag photo" hint="Photo of fire extinguisher inspection tag · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
-            <UploadRow fieldKey="exit_signs_photo" centerId={centerId} label="Exit signs photo" hint="Photo of posted exit signage at required exits · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
-            <UploadRow fieldKey="facility_inspection_report" centerId={centerId} label="Facility inspection report" hint="Upload health or fire department facility inspection report · PDF · Max 5 MB" />
+            <UploadRow fieldKey="fire_ext_tag_photo" centerId={centerId} label="Fire extinguisher inspection tag photo" hint="Photo of fire extinguisher inspection tag · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto userRole={userRole} />
+            <UploadRow fieldKey="exit_signs_photo" centerId={centerId} label="Exit signs photo" hint="Photo of posted exit signage at required exits · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto userRole={userRole} />
+            <UploadRow fieldKey="facility_inspection_report" centerId={centerId} label="Facility inspection report" hint="Upload health or fire department facility inspection report · PDF · Max 5 MB" userRole={userRole} />
           </Section>
         </>)}
 
@@ -1093,7 +1215,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Staff vaccination records on file" fieldKey="staffVaccinationRecs">
               <YesNo value={liveData.staffVaccinationRecs || ''} onChange={v => set('staffVaccinationRecs', v)} opts={['Yes','No','Not required']} />
             </Field>
-            <UploadRow fieldKey="illness_exclusion_posted_photo" centerId={centerId} label="Illness exclusion policy posted (photo)" hint="Photo of illness exclusion policy posted for parent and staff viewing · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
+            <UploadRow fieldKey="illness_exclusion_posted_photo" centerId={centerId} label="Illness exclusion policy posted (photo)" hint="Photo of illness exclusion policy posted for parent and staff viewing · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto userRole={userRole} />
           </Section>
 
           <Section title="TB Screening" sub={`${state}: ${rules.tbTestReq || 'Initial at hire'}`}>
@@ -1144,7 +1266,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="AED on premises" fieldKey="aedOnPremises">
               <YesNo value={liveData.aedOnPremises || ''} onChange={v => set('aedOnPremises', v)} opts={['Yes','No','Not required']} />
             </Field>
-            <UploadRow fieldKey="food_prot_mgr_cert" centerId={centerId} label="Food Protection Manager certificate" hint="Upload Food Protection Manager certification (required in DC) · PDF or JPG · Max 5 MB" />
+            <UploadRow fieldKey="food_prot_mgr_cert" centerId={centerId} label="Food Protection Manager certificate" hint="Upload Food Protection Manager certification (required in DC) · PDF or JPG · Max 5 MB" userRole={userRole} />
           </Section>
 
           <Section title="Mandated Reporter Training" sub={`${state}: ${rules.mandatedReporterRenewal || 'Required at hire'}`}>
@@ -1164,8 +1286,8 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Child abuse hotline number posted" fieldKey="hotlinePosted">
               <YesNo value={liveData.hotlinePosted || ''} onChange={v => set('hotlinePosted', v)} />
             </Field>
-            <UploadRow fieldKey="abuse_reporting_posted_photo" centerId={centerId} label="Abuse reporting procedure posted (photo)" hint="Photo of child abuse reporting procedure posted visibly in center · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
-            <UploadRow fieldKey="hotline_posted_photo" centerId={centerId} label="Hotline number posted (photo)" hint="Photo of posted child abuse hotline number · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
+            <UploadRow fieldKey="abuse_reporting_posted_photo" centerId={centerId} label="Abuse reporting procedure posted (photo)" hint="Photo of child abuse reporting procedure posted visibly in center · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto userRole={userRole} />
+            <UploadRow fieldKey="hotline_posted_photo" centerId={centerId} label="Hotline number posted (photo)" hint="Photo of posted child abuse hotline number · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto userRole={userRole} />
           </Section>
 
           <Section title="Annual Training" sub={`${state} requires ${reg.trainingHrs || 12} hrs/yr for all direct-care staff`}>
@@ -1579,10 +1701,10 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Fire alarm system tested" fieldKey="fireAlarmTested">
               <YesNo value={liveData.fireAlarmTested || ''} onChange={v => set('fireAlarmTested', v)} />
             </Field>
-            <UploadRow fieldKey="fire_evac_plan" centerId={centerId} label="Fire evacuation plan" hint="Upload written fire evacuation plan · PDF · Max 5 MB" />
-            <UploadRow fieldKey="fire_evac_posted_photo" centerId={centerId} label="Evacuation route map photo" hint="Photo of posted evacuation map in a classroom or hallway · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
-            <UploadRow fieldKey="fire_drill_log" centerId={centerId} label="Fire drill log" hint="Upload fire drill log showing dates, times, evacuation times, and counts · PDF or JPG · Max 5 MB" />
-            <UploadRow fieldKey="fire_dept_inspection_report" centerId={centerId} label="Fire department inspection report" hint="Upload current fire department facility inspection report · PDF · Max 5 MB" />
+            <UploadRow fieldKey="fire_evac_plan" centerId={centerId} label="Fire evacuation plan" hint="Upload written fire evacuation plan · PDF · Max 5 MB" userRole={userRole} />
+            <UploadRow fieldKey="fire_evac_posted_photo" centerId={centerId} label="Evacuation route map photo" hint="Photo of posted evacuation map in a classroom or hallway · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto userRole={userRole} />
+            <UploadRow fieldKey="fire_drill_log" centerId={centerId} label="Fire drill log" hint="Upload fire drill log showing dates, times, evacuation times, and counts · PDF or JPG · Max 5 MB" userRole={userRole} />
+            <UploadRow fieldKey="fire_dept_inspection_report" centerId={centerId} label="Fire department inspection report" hint="Upload current fire department facility inspection report · PDF · Max 5 MB" userRole={userRole} />
           </Section>
 
           <Section title="Tornado / Severe Weather" sub={`${state}: ${rules.tornadoDrill || 'See state requirement'}`}>
@@ -1609,7 +1731,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
                 <Field label="Severe weather alert system available" fieldKey="severeWeatherAlert">
                   <YesNo value={liveData.severeWeatherAlert || ''} onChange={v => set('severeWeatherAlert', v)} />
                 </Field>
-                <UploadRow fieldKey="tornado_drill_log" centerId={centerId} label="Tornado drill log" hint="Upload tornado drill log with date, time, shelter location, and staff count · PDF or JPG · Max 5 MB" />
+                <UploadRow fieldKey="tornado_drill_log" centerId={centerId} label="Tornado drill log" hint="Upload tornado drill log with date, time, shelter location, and staff count · PDF or JPG · Max 5 MB" userRole={userRole} />
               </>
             }
           </Section>
@@ -1632,7 +1754,7 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Communication device available during lockdown" fieldKey="commDeviceAvailable">
               <YesNo value={liveData.commDeviceAvailable || ''} onChange={v => set('commDeviceAvailable', v)} />
             </Field>
-            <UploadRow fieldKey="lockdown_drill_log" centerId={centerId} label="Lockdown drill log" hint="Upload lockdown drill log with date, time, procedures, and staff count · PDF or JPG · Max 5 MB" />
+            <UploadRow fieldKey="lockdown_drill_log" centerId={centerId} label="Lockdown drill log" hint="Upload lockdown drill log with date, time, procedures, and staff count · PDF or JPG · Max 5 MB" userRole={userRole} />
           </Section>
 
           <Section title="Emergency Plans & Records">
@@ -1661,9 +1783,9 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="First aid kit contents current — no expired items" fieldKey="firstAidKitContents">
               <YesNo value={liveData.firstAidKitContents || ''} onChange={v => set('firstAidKitContents', v)} />
             </Field>
-            <UploadRow fieldKey="emergency_plan" centerId={centerId} label="Written emergency plan" hint="Upload comprehensive written emergency plan document · PDF · Max 5 MB" />
-            <UploadRow fieldKey="emergency_contacts_photo" centerId={centerId} label="Emergency contact list photo" hint="Photo of posted emergency contact list (fire, police, poison control, DSS, hospital) · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
-            <UploadRow fieldKey="first_aid_kit_photo" centerId={centerId} label="First aid kit contents photo" hint="Photo of first aid kit with contents visible · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto />
+            <UploadRow fieldKey="emergency_plan" centerId={centerId} label="Written emergency plan" hint="Upload comprehensive written emergency plan document · PDF · Max 5 MB" userRole={userRole} />
+            <UploadRow fieldKey="emergency_contacts_photo" centerId={centerId} label="Emergency contact list photo" hint="Photo of posted emergency contact list (fire, police, poison control, DSS, hospital) · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto userRole={userRole} />
+            <UploadRow fieldKey="first_aid_kit_photo" centerId={centerId} label="First aid kit contents photo" hint="Photo of first aid kit with contents visible · JPG or PNG · Min 800×600 px · Max 5 MB" isPhoto userRole={userRole} />
           </Section>
 
           <Section title="Health Inspection">
@@ -1689,8 +1811,8 @@ export default function DataEntryTab({ center, liveData = {}, updateData, reg = 
             <Field label="Food service permit current" fieldKey="foodServicePermit">
               <YesNo value={liveData.foodServicePermit || ''} onChange={v => set('foodServicePermit', v)} opts={['Yes','No','Not applicable']} />
             </Field>
-            <UploadRow fieldKey="health_inspection_report" centerId={centerId} label="Health inspection report" hint="Upload most recent health department inspection report · PDF · Max 5 MB" />
-            <UploadRow fieldKey="food_service_permit" centerId={centerId} label="Food service permit" hint="Upload current food service or kitchen permit · PDF · Max 5 MB" />
+            <UploadRow fieldKey="health_inspection_report" centerId={centerId} label="Health inspection report" hint="Upload most recent health department inspection report · PDF · Max 5 MB" userRole={userRole} />
+            <UploadRow fieldKey="food_service_permit" centerId={centerId} label="Food service permit" hint="Upload current food service or kitchen permit · PDF · Max 5 MB" userRole={userRole} />
           </Section>
 
           <Section title="Drill Log Retention">
