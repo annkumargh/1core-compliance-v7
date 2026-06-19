@@ -896,7 +896,7 @@ export default function App() {
 
       {/* ── MAIN ── */}
       <main className="main">
-        {role==='staff'     && <StaffView     activeTab={activeTab} onStaffUpdate={handleStaffUpdate} pendingUpdates={pendingStaffUpdates}/>}
+        {role==='staff'     && <StaffView     activeTab={activeTab} onStaffUpdate={handleStaffUpdate} onTabChange={setActiveTab} pendingUpdates={pendingStaffUpdates}/>}
         {role==='inspector' && <InspectorView activeTab={activeTab} center={centerViewData} reg={reg} liveData={centerData}/>}
         {role==='owner' && selectedId && (
           <div style={{display:'flex', flexDirection:'column', height:'100%'}}>
