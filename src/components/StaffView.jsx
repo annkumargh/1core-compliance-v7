@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { MOCK_STAFF_SARAH } from '../mockData';
 
 /* ── Palette ─────────────────────────────────────────────────────────────── */
@@ -6,15 +6,34 @@ const C  = { expired:'#b91c1c', current:'#2d7a4f', valid:'#2d7a4f', met:'#2d7a4f
 const BG = { expired:'#fdf1f1', current:'#eef7f2', valid:'#eef7f2', met:'#eef7f2', onfile:'#eef7f2', warning:'#fdf4e7' };
 const BD = { expired:'#e8a0a0', current:'#a7d4ba', valid:'#a7d4ba', met:'#a7d4ba', onfile:'#a7d4ba', warning:'#e6b87a' };
 
-const ATTACH_KEY = '1core_compliance_v6_staff_attachments';
-const STAFF_NOTES_KEY = '1core_compliance_v6_staff_notes';
+const ATTACH_LEGACY_KEY  = '1core_compliance_v6_staff_attachments';
+const ATTACH_VERSION_KEY = '1core_compliance_v7_staff_docversions';
+const STAFF_NOTES_KEY    = '1core_compliance_v6_staff_notes';
 
 /* ── Attachment storage helpers ──────────────────────────────────────────── */
-function loadAttachments() {
-  try { return JSON.parse(localStorage.getItem(ATTACH_KEY) || '{}'); } catch { return {}; }
+function loadLegacyStaffAttachments() {
+  try { return JSON.parse(localStorage.getItem(ATTACH_LEGACY_KEY) || '{}'); } catch { return {}; }
 }
-function saveAttachments(data) {
-  try { localStorage.setItem(ATTACH_KEY, JSON.stringify(data)); } catch {}
+function loadDocVersions() {
+  try { return JSON.parse(localStorage.getItem(ATTACH_VERSION_KEY) || '{}'); } catch { return {}; }
+}
+function saveDocVersions(data) {
+  try { localStorage.setItem(ATTACH_VERSION_KEY, JSON.stringify(data)); } catch {}
+}
+function migrateIfNeeded(staffId, fieldKey) {
+  const all = loadDocVersions();
+  if (all[staffId]?.[fieldKey]) return;
+  const legacy = loadLegacyStaffAttachments();
+  const old = legacy[staffId]?.[fieldKey];
+  if (!old) return;
+  if (!all[staffId]) all[staffId] = {};
+  all[staffId][fieldKey] = [{
+    id: 'v_migrated_' + Date.now(),
+    name: old.name, size: old.size, type: old.type,
+    uploadedAt: old.uploadedAt || new Date().toISOString(),
+    data: old.data,
+  }];
+  saveDocVersions(all);
 }
 function loadStaffNotes() {
   try { return JSON.parse(localStorage.getItem(STAFF_NOTES_KEY) || '{}'); } catch { return {}; }
@@ -79,87 +98,166 @@ function NoteToggle({ fieldKey, staffId }) {
   );
 }
 
-/* ── FileUpload component ────────────────────────────────────────────────── */
-function FileUpload({ fieldKey, label, hint, accept = '.pdf,.jpg,.jpeg,.png', staffId = 'sarah' }) {
+/* ── FileUpload component (versioned) ────────────────────────────────────── */
+// Uploading a new file prepends to the version stack — nothing is ever overwritten.
+// versions[0] is always the current version. All past versions are preserved.
+function FileUpload({ fieldKey, label, hint, accept = '.pdf,.jpg,.jpeg,.png', staffId = 'sarah', userRole = 'Staff Member' }) {
   const inputRef = useRef();
-  const [attachments, setAttachments] = useState(() => loadAttachments());
-  const stored = attachments[staffId]?.[fieldKey];
+
+  useEffect(() => { migrateIfNeeded(staffId, fieldKey); }, [staffId, fieldKey]); // eslint-disable-line
+
+  const [versions, setVersions] = useState(() => {
+    migrateIfNeeded(staffId, fieldKey);
+    return loadDocVersions()[staffId]?.[fieldKey] || [];
+  });
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const current = versions[0] || null;
+  const past    = versions.slice(1);
+
+  const fmtSize     = s => s < 1024 * 1024 ? `${Math.round(s / 1024)} KB` : `${(s / 1024 / 1024).toFixed(1)} MB`;
+  const fmtDate     = d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const fmtDateTime = d => new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 
   const handleFile = useCallback((e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('File exceeds 5 MB limit. Please compress and try again.'); e.target.value = ''; return; }
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const all = loadAttachments();
-      if (!all[staffId]) all[staffId] = {};
-      all[staffId][fieldKey] = {
-        name: file.name,
-        size: file.size,
-        type: file.type,
+      const newVersion = {
+        id: 'v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        name: file.name, size: file.size, type: file.type,
         uploadedAt: new Date().toISOString(),
+        uploadedBy: userRole,
         data: ev.target.result,
       };
-      saveAttachments(all);
-      setAttachments({ ...all });
+      const all = loadDocVersions();
+      if (!all[staffId]) all[staffId] = {};
+      const next = [newVersion, ...(all[staffId][fieldKey] || [])];
+      all[staffId][fieldKey] = next;
+      saveDocVersions(all);
+      setVersions(next);
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
+  }, [fieldKey, staffId, userRole]);
+
+  const handleRemoveCurrent = useCallback(() => {
+    if (!window.confirm('Remove this version? Previous versions (if any) will remain accessible.')) return;
+    const all = loadDocVersions();
+    if (!all[staffId]?.[fieldKey]) return;
+    const next = all[staffId][fieldKey].slice(1);
+    if (next.length === 0) { delete all[staffId][fieldKey]; } else { all[staffId][fieldKey] = next; }
+    saveDocVersions(all);
+    setVersions(next);
   }, [fieldKey, staffId]);
 
-  const handleRemove = useCallback(() => {
-    const all = loadAttachments();
-    if (all[staffId]) delete all[staffId][fieldKey];
-    saveAttachments(all);
-    setAttachments({ ...all });
-    if (inputRef.current) inputRef.current.value = '';
+  const handleRemovePast = useCallback((id) => {
+    if (!window.confirm('Permanently delete this version?')) return;
+    const all = loadDocVersions();
+    if (!all[staffId]?.[fieldKey]) return;
+    const next = all[staffId][fieldKey].filter(v => v.id !== id);
+    if (next.length === 0) { delete all[staffId][fieldKey]; } else { all[staffId][fieldKey] = next; }
+    saveDocVersions(all);
+    setVersions(next);
   }, [fieldKey, staffId]);
 
-  const isImage = stored?.type?.startsWith('image/');
   const noteToggle = <NoteToggle fieldKey={fieldKey} staffId={staffId} />;
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <label style={{ fontSize: 12.5, fontWeight: 600, color: '#374151' }}>{label}</label>
-      {hint && <span style={{ fontSize: 11.5, color: '#00a99d', marginBottom: 2 }}>{hint}</span>}
-
-      {stored ? (
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: '1px solid #a7d4ba', borderRadius: 8, background: '#eef7f2' }}>
-            {isImage
-              ? <img src={stored.data} alt={stored.name} style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4, border: '1px solid #a7d4ba' }} />
-              : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2d7a4f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            }
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#1e5c38', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stored.name}</div>
-              <div style={{ fontSize: 11.5, color: '#2d7a4f' }}>
-                Uploaded {new Date(stored.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                {' · '}{stored.size < 1024 * 1024 ? `${Math.round(stored.size / 1024)} KB` : `${(stored.size / 1024 / 1024).toFixed(1)} MB`}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <a href={stored.data} download={stored.name} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #a7d4ba', background: '#fff', color: '#2d7a4f', fontSize: 12, fontWeight: 500, textDecoration: 'none', cursor: 'pointer' }}>Download</a>
-              <button onClick={handleRemove} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #e8a0a0', background: '#fdf1f1', color: '#b91c1c', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
-            </div>
+  if (!current) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+        <label style={{ fontSize:12.5, fontWeight:600, color:'#374151' }}>{label}</label>
+        {hint && <span style={{ fontSize:11.5, color:'#00a99d', marginBottom:2 }}>{hint}</span>}
+        <div
+          onClick={() => inputRef.current?.click()}
+          style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', border:'1.5px dashed #cbd5e1', borderRadius:8, background:'#f8fafc', cursor:'pointer', transition:'border-color 0.15s' }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = '#00a99d'}
+          onMouseLeave={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+          <div>
+            <div style={{ fontSize:13, color:'#374151', fontWeight:500 }}>Click to upload</div>
+            <div style={{ fontSize:11.5, color:'#94a3b8' }}>PDF, JPG, or PNG · Max 5 MB</div>
           </div>
-          {noteToggle}
         </div>
-      ) : (
-        <div>
-          <div
-            onClick={() => inputRef.current?.click()}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: '1.5px dashed #cbd5e1', borderRadius: 8, background: '#f8fafc', cursor: 'pointer', transition: 'border-color 0.15s' }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = '#00a99d'}
-            onMouseLeave={e => e.currentTarget.style.borderColor = '#cbd5e1'}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
-            <div>
-              <div style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>Click to upload</div>
-              <div style={{ fontSize: 11.5, color: '#94a3b8' }}>PDF, JPG, or PNG · Max 5 MB</div>
-            </div>
+        {noteToggle}
+        <input ref={inputRef} type="file" accept={accept} onChange={handleFile} style={{ display:'none' }} />
+      </div>
+    );
+  }
+
+  const isImage = current.type?.startsWith('image/');
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+      <label style={{ fontSize:12.5, fontWeight:600, color:'#374151' }}>{label}</label>
+      {hint && <span style={{ fontSize:11.5, color:'#00a99d', marginBottom:2 }}>{hint}</span>}
+
+      {/* Current version row */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', border:'1px solid #a7d4ba', borderRadius:8, background:'#eef7f2' }}>
+        {isImage
+          ? <img src={current.data} alt={current.name} style={{ width:32, height:32, objectFit:'cover', borderRadius:4, border:'1px solid #a7d4ba', flexShrink:0 }} />
+          : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2d7a4f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        }
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
+            <span style={{ fontSize:10.5, fontWeight:700, color:'#fff', background:'#2d7a4f', borderRadius:3, padding:'1px 5px', flexShrink:0 }}>CURRENT</span>
+            <span style={{ fontSize:12.5, fontWeight:600, color:'#1e5c38', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{current.name}</span>
           </div>
-          {noteToggle}
+          <div style={{ fontSize:11.5, color:'#2d7a4f', marginTop:2 }}>{fmtDate(current.uploadedAt)} &middot; {fmtSize(current.size)}</div>
+        </div>
+        <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+          <a href={current.data} download={current.name} style={{ padding:'5px 10px', borderRadius:6, border:'1px solid #a7d4ba', background:'#fff', color:'#2d7a4f', fontSize:12, fontWeight:500, textDecoration:'none' }}>Download</a>
+          <button onClick={() => inputRef.current?.click()} style={{ padding:'5px 10px', borderRadius:6, border:'1px solid #93c5fd', background:'#eff6ff', color:'#1d4ed8', fontSize:12, fontWeight:500, cursor:'pointer', fontFamily:'inherit' }}>Replace</button>
+          <button onClick={handleRemoveCurrent} style={{ padding:'5px 10px', borderRadius:6, border:'1px solid #e8a0a0', background:'#fdf1f1', color:'#b91c1c', fontSize:12, fontWeight:500, cursor:'pointer', fontFamily:'inherit' }}>Remove</button>
+        </div>
+        <input ref={inputRef} type="file" accept={accept} onChange={handleFile} style={{ display:'none' }} />
+      </div>
+
+      {/* Version history drawer */}
+      {past.length > 0 && (
+        <div>
+          <button
+            onClick={() => setHistoryOpen(o => !o)}
+            style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:6, border:'1px solid #e2e8f0', background:'#f8fafc', color:'#64748b', fontSize:11.5, fontWeight:500, cursor:'pointer', fontFamily:'inherit' }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              style={{ transform: historyOpen ? 'rotate(180deg)' : 'none', transition:'transform 0.15s' }}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+            {historyOpen ? 'Hide' : 'Show'} version history &middot; {past.length} older {past.length === 1 ? 'version' : 'versions'}
+          </button>
+          {historyOpen && (
+            <div style={{ marginTop:5, border:'1px solid #e2e8f0', borderRadius:8, overflow:'hidden' }}>
+              <div style={{ padding:'6px 12px', background:'#f8fafc', borderBottom:'1px solid #e2e8f0', display:'flex', alignItems:'center', gap:6 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span style={{ fontSize:11, fontWeight:600, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em' }}>Version History</span>
+                <span style={{ fontSize:11, color:'#94a3b8' }}>&mdash; all previous uploads preserved &amp; downloadable</span>
+              </div>
+              {past.map((v, idx) => {
+                const vIsImg = v.type?.startsWith('image/');
+                return (
+                  <div key={v.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', borderBottom: idx < past.length - 1 ? '1px solid #f1f5f9' : 'none', background:'#fff' }}>
+                    {vIsImg
+                      ? <img src={v.data} alt={v.name} style={{ width:24, height:24, objectFit:'cover', borderRadius:3, border:'1px solid #e2e8f0', flexShrink:0 }} />
+                      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    }
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:12, fontWeight:500, color:'#475569', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v.name}</div>
+                      <div style={{ fontSize:11, color:'#94a3b8', marginTop:1 }}>{fmtDateTime(v.uploadedAt)} &middot; {fmtSize(v.size)}</div>
+                    </div>
+                    <span style={{ fontSize:11, fontWeight:600, color:'#94a3b8', background:'#f1f5f9', borderRadius:3, padding:'1px 6px', whiteSpace:'nowrap', flexShrink:0 }}>v{past.length - idx}</span>
+                    <a href={v.data} download={v.name} style={{ padding:'3px 8px', borderRadius:5, border:'1px solid #e2e8f0', background:'#f8fafc', color:'#64748b', fontSize:11.5, fontWeight:500, textDecoration:'none', whiteSpace:'nowrap', flexShrink:0 }}>Download</a>
+                    <button onClick={() => handleRemovePast(v.id)} style={{ padding:'3px 8px', borderRadius:5, border:'1px solid #f3c6c6', background:'#fdf1f1', color:'#b91c1c', fontSize:11.5, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap', flexShrink:0 }}>Delete</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
-      <input ref={inputRef} type="file" accept={accept} onChange={handleFile} style={{ display: 'none' }} />
+      {noteToggle}
     </div>
   );
 }
@@ -274,7 +372,7 @@ function SubmitFooter({ onClear, onSubmit, submitted }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════ */
-export default function StaffView({ activeTab='status', staffData={}, onStaffUpdate, pendingUpdates=[] }) {
+export default function StaffView({ activeTab='status', staffData={}, onStaffUpdate, onTabChange, pendingUpdates=[] }) {
   const s = MOCK_STAFF_SARAH;
 
   /* ── Local form state ── */
@@ -371,13 +469,33 @@ export default function StaffView({ activeTab='status', staffData={}, onStaffUpd
           ))}
         </div>
 
-        {s.actionItems.map((a,i) => (
+        {s.actionItems.map((a,i) => {
+          const jumpTab = a.tab || (a.title?.toLowerCase().includes('cpr') || a.title?.toLowerCase().includes('first aid') ? 'cpr'
+            : a.title?.toLowerCase().includes('training') ? 'training'
+            : a.title?.toLowerCase().includes('health') || a.title?.toLowerCase().includes('immuniz') ? 'health'
+            : a.title?.toLowerCase().includes('profile') || a.title?.toLowerCase().includes('credential') ? 'profile'
+            : null);
+          return (
           <div key={i} style={{ background:'#fdf1f1', border:'1px solid #e8a0a0', borderLeft:'4px solid #b91c1c', borderRadius:10, padding:'16px 20px', marginBottom:20 }}>
-            <div style={{ fontSize:13.5, fontWeight:700, color:'#7f1d1d', marginBottom:5 }}>{a.title}</div>
-            <div style={{ fontSize:13, color:'#7f1d1d', marginBottom:8 }}>{a.detail}</div>
-            {a.links && <div style={{ fontSize:12.5, color:'#b91c1c' }}><strong>Renewal:</strong> {a.links}</div>}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12 }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13.5, fontWeight:700, color:'#7f1d1d', marginBottom:5 }}>{a.title}</div>
+                <div style={{ fontSize:13, color:'#7f1d1d', marginBottom:8 }}>{a.detail}</div>
+                {a.links && <div style={{ fontSize:12.5, color:'#b91c1c' }}><strong>Renewal:</strong> {a.links}</div>}
+              </div>
+              {jumpTab && onTabChange && (
+                <button
+                  onClick={() => onTabChange(jumpTab)}
+                  style={{ flexShrink:0, display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', borderRadius:8, border:'1px solid #e8a0a0', background:'#fff', color:'#b91c1c', fontSize:12.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}
+                >
+                  Update record
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+              )}
+            </div>
           </div>
-        ))}
+          );
+        })}
 
         {pendingUpdates.length > 0 && (
           <div style={{ background:'#fdf4e7', border:'1px solid #e6b87a', borderRadius:10, padding:'14px 18px', marginBottom:20 }}>
@@ -583,36 +701,6 @@ export default function StaffView({ activeTab='status', staffData={}, onStaffUpd
             ))}
           </div>
 
-          <SectionCard title="Training Sessions — 2026">
-            <div style={{ overflowX:'auto' }}>
-              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13.5 }}>
-                <thead>
-                  <tr style={{ background:'#f8fafc', borderBottom:'1px solid #e2e8f0' }}>
-                    {['DATE','TOPIC / COURSE','TYPE','PROVIDER','HOURS','CERT'].map(h=>(
-                      <th key={h} style={{ textAlign:'left', padding:'10px 14px', fontSize:11, fontWeight:700, color:'#94a3b8', letterSpacing:'0.06em' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sessions.map((ss,i)=>(
-                    <tr key={i} style={{ borderBottom:'1px solid #f8fafc' }}>
-                      <td style={{ padding:'12px 14px', color:'#64748b', whiteSpace:'nowrap' }}>{ss.date}</td>
-                      <td style={{ padding:'12px 14px', fontWeight:600, color:'#1e293b' }}>{ss.course}</td>
-                      <td style={{ padding:'12px 14px' }}>
-                        <span style={{ fontSize:12, padding:'2px 9px', borderRadius:20, background:'#eef4fc', color:'#1e5c8a', border:'1px solid #a8c4e0', fontWeight:600, whiteSpace:'nowrap' }}>{ss.type}</span>
-                      </td>
-                      <td style={{ padding:'12px 14px', color:'#64748b' }}>{ss.provider}</td>
-                      <td style={{ padding:'12px 14px', fontWeight:700, color:'#2d7a4f', textAlign:'center' }}>{ss.hours}</td>
-                      <td style={{ padding:'12px 14px', textAlign:'center' }}>
-                        {ss.ce && <span style={{ color:'#2d7a4f', fontSize:16, fontWeight:700 }}>●</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </SectionCard>
-
           <SectionCard
             title="Log a New Training Session"
             footer={
@@ -640,7 +728,7 @@ export default function StaffView({ activeTab='status', staffData={}, onStaffUpd
               <Field label="Training type">
                 <select value={newSession.type} onChange={e=>setNewSession(p=>({...p,type:e.target.value}))} style={selectStyle}>
                   <option value="">Select...</option>
-                  <option>Health & Safety</option>
+                  <option>Health &amp; Safety</option>
                   <option>ECE / Professional</option>
                   <option>Mandated Reporter</option>
                   <option>Child Abuse Prevention</option>
@@ -679,6 +767,36 @@ export default function StaffView({ activeTab='status', staffData={}, onStaffUpd
               <Field label="Notes (optional)">
                 <textarea placeholder="Any additional notes about this training..." value={newSession.notes} onChange={e=>setNewSession(p=>({...p,notes:e.target.value}))} rows={2} style={{ ...inputStyle, resize:'vertical' }}/>
               </Field>
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Training Sessions — 2026">
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13.5 }}>
+                <thead>
+                  <tr style={{ background:'#f8fafc', borderBottom:'1px solid #e2e8f0' }}>
+                    {['DATE','TOPIC / COURSE','TYPE','PROVIDER','HOURS','CERT'].map(h=>(
+                      <th key={h} style={{ textAlign:'left', padding:'10px 14px', fontSize:11, fontWeight:700, color:'#94a3b8', letterSpacing:'0.06em' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sessions.map((ss,i)=>(
+                    <tr key={i} style={{ borderBottom:'1px solid #f8fafc' }}>
+                      <td style={{ padding:'12px 14px', color:'#64748b', whiteSpace:'nowrap' }}>{ss.date}</td>
+                      <td style={{ padding:'12px 14px', fontWeight:600, color:'#1e293b' }}>{ss.course}</td>
+                      <td style={{ padding:'12px 14px' }}>
+                        <span style={{ fontSize:12, padding:'2px 9px', borderRadius:20, background:'#eef4fc', color:'#1e5c8a', border:'1px solid #a8c4e0', fontWeight:600, whiteSpace:'nowrap' }}>{ss.type}</span>
+                      </td>
+                      <td style={{ padding:'12px 14px', color:'#64748b' }}>{ss.provider}</td>
+                      <td style={{ padding:'12px 14px', fontWeight:700, color:'#2d7a4f', textAlign:'center' }}>{ss.hours}</td>
+                      <td style={{ padding:'12px 14px', textAlign:'center' }}>
+                        {ss.ce && <span style={{ color:'#2d7a4f', fontSize:16, fontWeight:700 }}>&#9679;</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </SectionCard>
         </div>
@@ -776,6 +894,43 @@ export default function StaffView({ activeTab='status', staffData={}, onStaffUpd
 
           <SectionCard title="My Immunization Records" subtitle="Recommended for all childcare staff per CDC and CFOC national standards"
             footer={<SubmitFooter onClear={()=>{}} onSubmit={()=>{ onStaffUpdate && onStaffUpdate('Health & Immunizations', { health }); }} submitted={false}/>}>
+            {/* ── Summary pill row ── */}
+            {(() => {
+              const statusKeys = ['hepBStatus','mmrStatus','varicellaStatus','tdapStatus','fluStatus','tb2Status'];
+              const upToDate   = statusKeys.filter(k => health[k] === 'Up to date' || health[k] === 'Negative').length;
+              const incomplete = statusKeys.filter(k => health[k] === 'Incomplete' || health[k] === 'Positive' || health[k] === 'Pending' || health[k] === 'Not yet').length;
+              const declined   = statusKeys.filter(k => health[k] === 'Declined').length;
+              const empty      = statusKeys.filter(k => !health[k]).length;
+              return (
+                <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:20, padding:'12px 16px', background:'#f8fafc', borderRadius:8, border:'1px solid #e2e8f0' }}>
+                  {upToDate > 0 && (
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 12px', borderRadius:20, fontSize:12, fontWeight:600, color:'#2d7a4f', background:'#eef7f2', border:'1px solid #a7d4ba' }}>
+                      <span style={{ width:6, height:6, borderRadius:'50%', background:'#2d7a4f' }}/>
+                      {upToDate} Up to date
+                    </span>
+                  )}
+                  {incomplete > 0 && (
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 12px', borderRadius:20, fontSize:12, fontWeight:600, color:'#b45309', background:'#fdf4e7', border:'1px solid #e6b87a' }}>
+                      <span style={{ width:6, height:6, borderRadius:'50%', background:'#b45309' }}/>
+                      {incomplete} Incomplete
+                    </span>
+                  )}
+                  {declined > 0 && (
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 12px', borderRadius:20, fontSize:12, fontWeight:600, color:'#64748b', background:'#f1f5f9', border:'1px solid #cbd5e1' }}>
+                      <span style={{ width:6, height:6, borderRadius:'50%', background:'#94a3b8' }}/>
+                      {declined} Declined
+                    </span>
+                  )}
+                  {empty > 0 && (
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 12px', borderRadius:20, fontSize:12, fontWeight:600, color:'#94a3b8', background:'#f8fafc', border:'1px solid #e2e8f0' }}>
+                      <span style={{ width:6, height:6, borderRadius:'50%', background:'#cbd5e1' }}/>
+                      {empty} Not recorded
+                    </span>
+                  )}
+                  <span style={{ fontSize:11.5, color:'#94a3b8', alignSelf:'center', marginLeft:'auto' }}>6 vaccines tracked</span>
+                </div>
+              );
+            })()}
             <ImmRow vaccine="Hepatitis B" sub="3-dose series — recommended for all childcare workers" dateKey="hepB" statusKey="hepBStatus"/>
             <ImmRow vaccine="MMR" sub="Measles, mumps, rubella — 2 doses or documented immunity" dateKey="mmr" statusKey="mmrStatus"/>
             <ImmRow vaccine="Varicella (chickenpox)" sub="2 doses or documented immunity" dateKey="varicella" statusKey="varicellaStatus"/>
