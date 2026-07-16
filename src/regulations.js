@@ -136,34 +136,42 @@ export const STATE_REGS = {
 
 
   CO: { name:"Colorado",
-    // Infant split at 6 months — corrected 14 May 2026 (§7.702.1(A))
-    infant:4, infantLabel:"Birth–6 months (1:4) | 6–15 months (1:5)",
-    infantTier2:5, infantTier2Ages:"6–15 months",
-    toddler:5, preschool:10, schoolAge:15,
+    infant:5, toddler:5, preschool:10, schoolAge:15,
+    // Infant ratio split REMOVED 16 Jul 2026 — primary source (8 CCR 1402-1 §2.217.A.14) shows a flat
+    // 1:5 ratio for the entire "6 weeks to 18 months (infants)" band. No 6-month sub-tier exists in the
+    // current rule text. Prior infantLabel/infantTier2/infantTier2Ages/infantRatioNote fields removed.
     indoorSqft:35, outdoorSqft:75, trainingHrs:15, inspPerYear:1,
-    directorReq:"BA in ECE or related field + 1 yr (or AA in ECE + 3 yrs, or CDA + 5 yrs) (12 CCR 2509-8 §7.712)",
-    teacherReq:"HS diploma + CDA or 12 ECE credit hours (§7.712)",
+    directorReq:"BA in ECE or related field + 1 yr experience (or AA in ECE + 3 yrs, or completion of Dept-approved 30-credit-hour course + 3-6 mo verified experience) (8 CCR 1402-1 §2.214)",
+    teacherReq:"Dept-approved training/credential per §2.216 qualifications matrix",
     qrs:"Colorado Shines", qrsScale:"1–5 stars",
-    agency:"CO Dept of Human Services (CDHS) — Division of Early Care and Learning",
-    agencyPhone:"(303) 866-5958", agencyWebsite:"cdhs.colorado.gov/childcare",
-    citation:"12 CCR 2509-8", enablingStatute:"CRS §26-6-100 et seq.",
+    // Agency name/phone corrected 16 Jul 2026 — CDHS is outdated; licensing moved to the Department
+    // of Early Childhood (CDEC). Phone corrected to match letterhead on real ROIs (was transposed).
+    agency:"Colorado Department of Early Childhood (CDEC) — Division of Early Learning, Licensing, and Administration",
+    agencyPhone:"303-866-5948", agencyWebsite:"cdec.colorado.gov",
+    citation:"8 CCR 1402-1", enablingStatute:"CRS §26.5-5-301 et seq.",
     insurance:"Required",
     family:{familyCommunication:"Yes",writtenPolicies:"Yes",careLog:"Yes",familyMeetings:"No"},
     rules:{
-      fireDrillFreq:"Monthly", hotWaterMax:"110°F", fireSafetyTraining:"Yes",
+      fireDrillFreq:"Monthly",
+      hotWaterMax:"110°F", // left as-is 16 Jul 2026 — no citation found in primary source; flagged, not resolved
+      fireSafetyTraining:"Yes",
       qrisType:"Voluntary", bgCheckType:"State (CBI) + FBI fingerprint",
-      tbTestReq:"Initial only", cprRenewal:"2 years",
+      tbTestReq:"Initial only", // left as-is 16 Jul 2026 — no TB citation found in primary source; flagged, not resolved
+      cprRenewal:"2 years",
       immExemptions:"Medical + Religious + Philosophical",
       immExemptionStatute:"CRS §25-4-903",
-      annualImmReporting:"Yes", recordRetention:"1 year",
-      tornadoDrill:"2x/year", lockdownDrill:"2x/year",
+      annualImmReporting:"Yes",
+      recordRetention:"3 years", // corrected 16 Jul 2026 (was "1 year") — 8 CCR 1402-1 §2.211.D
+      tornadoDrill:"Monthly, March–October", // corrected 16 Jul 2026 (was "2x/year") — §2.138.A
+      lockdownDrill:"Quarterly", // corrected 16 Jul 2026 (was "2x/year") — §2.138.A
       coDetector:"Required", coDetectorStatute:"CRS §38-45-101",
       mandatedReporterRenewal:"No renewal required",
       mandatedReporterStatute:"CRS §19-3-304",
       workforceRegistry:"Colorado Shines Registry (CDHS)",
-      staffPhysical:"Required at hire", toiletRatio:"1:15", minFencingHeight:"4 ft",
-      // Colorado-specific: infant age tracked to month for tier calculation
-      infantRatioNote:"Track each infant DOB to month — under 6mo requires 1:4 even if group ratio appears compliant",
+      staffPhysical:"Within 30 days of hire (or dated ≤6mo prior); annual self-reported health history thereafter", // corrected 16 Jul 2026 — §2.212.G
+      toiletRatio:"1:15", minFencingHeight:"4 ft",
+      fireInspectionFreq:"2 years", // NEW 16 Jul 2026 — §2.122.A; fireDeptInspCurrent field assumed "annual," CO is biennial
+      ageGroupSeparation:"Infant/toddler rooms must be separated from other ages by walls ≥8ft + full doors", // NEW 16 Jul 2026 — §2.233.B/C
       // Inspection report structure
       inspectionTypes:["Supervisory","Announced","Unannounced","Complaint","Follow-up"],
       inspectionCiteFormat:"2.XXX.X — General Rules / Center Rules / Special Activity Rules",
@@ -199,44 +207,50 @@ export const STATE_REGS = {
       rulesSets:["Center Rules","General Rules","Special Activity Rules"],
       inspectionNote:"Violations may affect Colorado Shines star rating. Subsequent violations of same type may be considered willful.",
     },
+    // VALIDATED 16 Jul 2026 (L3 deep-validation pass, primary source: 8 CCR 1402-1) — corrections: citation
+    // prefix (12 CCR 2509-8 → 8 CCR 1402-1, was wrong throughout refs); infant ratio split removed (flat 1:5,
+    // no 6mo tier in current rule text); tornadoDrill (2x/year → Monthly Mar–Oct); lockdownDrill (2x/year →
+    // Quarterly); recordRetention (1yr → 3yr); staffPhysical (clarified 30-day/annual-renewal structure);
+    // agency name/phone (CDHS → CDEC, phone digit transposition fixed). hotWaterMax and tbTestReq
+    // deliberately left unresolved — no supporting citation found in primary source, flagged for follow-up.
+    // Cross-validated against 2 real Colorado ROIs (Lakewood Learning Center #46568, Lionheart Children's
+    // Academy at Revive #1769657) — all 12 unique rule citations across both reports matched primary
+    // source verbatim.
     refs:{
-      ratios:"12 CCR 2509-8 §7.702.1",
-      infantTier:"12 CCR 2509-8 §7.702.1(A) — split at 6 months",
-      toddlerRatio:"§7.702.1(B)",
-      preschoolRatio:"§7.702.1(C)",
-      schoolAgeRatio:"§7.702.1(D)",
-      indoorSqft:"12 CCR 2509-8 §7.706",
-      outdoorSqft:"§7.706",
-      hotWaterMax:"§7.706",
-      toiletRatio:"§7.706",
-      fencingMin:"§7.706",
-      trainingHrs:"12 CCR 2509-8 §7.712",
-      directorReq:"§7.712",
-      teacherReq:"§7.712",
-      cprRenewal:"§7.712",
-      staffPhysical:"12 CCR 2509-8 §7.711",
-      tbTestReq:"§7.711",
-      bgCheckType:"CRS §26-6-104 (CBI + FBI)",
+      ratios:"8 CCR 1402-1 §2.217.A.14",
+      toddlerRatio:"§2.217.A.14",
+      preschoolRatio:"§2.217.A.14",
+      schoolAgeRatio:"§2.217.A.14",
+      indoorSqft:"8 CCR 1402-1 §2.231.A.1",
+      outdoorSqft:"§2.232.A.2",
+      toiletRatio:"§2.235.C",
+      fencingMin:"§2.232.A.3",
+      trainingHrs:"8 CCR 1402-1 §2.213.M",
+      directorReq:"§2.214 (large center) / §2.215 (small center)",
+      teacherReq:"§2.216",
+      cprRenewal:"§2.213.E-F",
+      staffPhysical:"8 CCR 1402-1 §2.212.G",
+      bgCheckType:"§2.121 (CBI + FBI)",
       immExemptions:"CRS §25-4-903",
       mandatedReporter:"CRS §19-3-304",
-      coDetector:"CRS §38-45-101",
-      fireDrill:"12 CCR 2509-8 §7.709",
-      tornadoDrill:"§7.709",
-      lockdownDrill:"§7.709",
-      recordRetention:"12 CCR 2509-8 §7.714",
-      inspections:"CDHS Division of Early Care and Learning",
-      standardPrecautions:"12 CCR 2509-8 §2.213.B — annual renewal required",
-      safeSleepTraining:"12 CCR 2509-8 §2.213.C — required for all infant staff, annual renewal",
-      childAbuseTraining:"12 CCR 2509-8 §2.213.G — required within 30 days of hire, annual renewal",
-      emergencyPreparednessTraining:"12 CCR 2509-8 §2.133.A — required prior to working with children",
-      roomCapacity:"12 CCR 2509-8 §2.217.A.15.d — licensed room capacity must not be exceeded",
-      chokeHazards:"12 CCR 2509-8 §2.229.L — areas accessible to under-3s must be free of choke hazards",
-      sharpToolStorage:"12 CCR 2509-8 §2.229.H — sharp tools inaccessible to children",
-      keepOutOfReach:"12 CCR 2509-8 §2.229.C — items labeled keep-out-of-reach must be inaccessible",
-      resilientSurfacing:"12 CCR 2509-8 §2.230.C.1.a — min 6 inches for climbing equipment 18+ inches",
-      toddlerRoomSeparation:"12 CCR 2509-8 §2.233.C.1 — toddler rooms physically separated by 8ft walls + full doors",
-      fireInspection:"12 CCR 2509-8 §2.122.A — required every 2 years from local fire dept + health dept",
-      staffHealthStatement:"12 CCR 2509-8 §2.212.G — required within 6 months prior or 30 days after hire; annual self-reported renewal",
+      coDetector:"CRS §38-45-101; 8 CCR 1402-1 §2.138.H",
+      fireDrill:"8 CCR 1402-1 §2.138.A",
+      tornadoDrill:"§2.138.A",
+      lockdownDrill:"§2.138.A",
+      recordRetention:"8 CCR 1402-1 §2.211.D",
+      inspections:"Colorado Department of Early Childhood",
+      standardPrecautions:"8 CCR 1402-1 §2.213.B — annual renewal required",
+      safeSleepTraining:"8 CCR 1402-1 §2.213.C — required for all infant staff, annual renewal",
+      childAbuseTraining:"8 CCR 1402-1 §2.213.G — required prior to working with children, annual renewal",
+      emergencyPreparednessTraining:"8 CCR 1402-1 §2.133.A — required prior to working with children",
+      roomCapacity:"8 CCR 1402-1 §2.217.A.15.d — licensed room capacity must not be exceeded",
+      chokeHazards:"8 CCR 1402-1 §2.229.L — areas accessible to under-3s must be free of choke hazards",
+      sharpToolStorage:"8 CCR 1402-1 §2.229.H — sharp tools inaccessible to children",
+      keepOutOfReach:"8 CCR 1402-1 §2.229.C — items labeled keep-out-of-reach must be inaccessible",
+      resilientSurfacing:"8 CCR 1402-1 §2.230.C.1.a — min 6 inches for climbing equipment 18+ inches",
+      ageGroupSeparation:"8 CCR 1402-1 §2.233.B (infant) / §2.233.C.1 (toddler) — separated by 8ft walls + full doors",
+      fireInspection:"8 CCR 1402-1 §2.122.A — required every 2 years from local fire dept + health dept",
+      staffHealthStatement:"8 CCR 1402-1 §2.212.G — required within 6 months prior or 30 days after hire; annual self-reported renewal",
     } },
   CT: { name:"Connecticut", infant:4, toddler:4, preschool:10, schoolAge:10, indoorSqft:35, outdoorSqft:75, trainingHrs:15, inspPerYear:1,
     directorReq:"BA in ECE or related field + 2 years supervisory experience",

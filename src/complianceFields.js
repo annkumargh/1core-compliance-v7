@@ -1,7 +1,7 @@
 // ── complianceFields.js — SINGLE SOURCE OF TRUTH ────────────────────────────
-// 287 fields across 7 compliance domains
+// 288 fields across 7 compliance domains
 // Generated from 1Core_Compliance_Field_Inventory.xlsx · BUSoft Technologies · May 2026
-// Field numbers: D1-001 … D7-044  |  NEVER renumber existing fields — append only
+// Field numbers: D1-001 … D7-044  |  NEVER renumber existing fields — append only (D2-042 added 16 Jul 2026)
 // Source codes: New=manual entry  1Core=pulled from 1Core CRM  Derivable=calculated
 
 function s(val, yes='compliant', no='missing') {
@@ -12,7 +12,10 @@ function s(val, yes='compliant', no='missing') {
 }
 
 function has(val) {
-  return (!val || val === '') ? 'nodata' : 'compliant';
+  // Explicitly check for "genuinely empty" rather than JS-falsy — a real
+  // zero count (e.g. 0 children present before opening hours) is valid
+  // entered data, not missing data. `!val` would wrongly treat 0 as empty.
+  return (val === '' || val === null || val === undefined) ? 'nodata' : 'compliant';
 }
 
 export function getDomainFields(center, reg, liveData = {}) {
@@ -109,6 +112,7 @@ export function getDomainFields(center, reg, liveData = {}) {
         { fieldNum:'D2-039', label:'Fire department inspection date', dataKey:'fireDeptInspDate', fieldType:'Date', subTab:'physical', source:'New', critical:false, inspector:true, value: ld['fireDeptInspDate'] || '', status: has(ld['fireDeptInspDate']), fieldKey:'fireDeptInspDate', description:'Date of most recent fire department facility inspection' },
         { fieldNum:'D2-040', label:'Health department inspection date', dataKey:'healthDeptInspDate', fieldType:'Date', subTab:'physical', source:'New', critical:false, inspector:true, value: ld['healthDeptInspDate'] || '', status: has(ld['healthDeptInspDate']), fieldKey:'healthDeptInspDate', description:'Date of most recent health department facility inspection' },
         { fieldNum:'D2-041', label:'ADA accessibility compliant', dataKey:'adaCompliant', fieldType:'YesNo', subTab:'physical', source:'New', critical:false, inspector:false, value: ld['adaCompliant'] || '', status: s(ld['adaCompliant']), fieldKey:'adaCompliant', description:'Facility meets ADA and Section 504 accessibility requirements' },
+        { fieldNum:'D2-042', label:'Age group physical separation', dataKey:'ageGroupSeparation', fieldType:'YesNo', subTab:'physical', source:'New', critical:true, inspector:true, value: ld['ageGroupSeparation'] || '', status: s(ld['ageGroupSeparation']), fieldKey:'ageGroupSeparation', description:'Infant/toddler classrooms physically separated from other age groups by walls (≥8ft) and full doors, where sharing a building with other ages' },
       ],
     },
 
