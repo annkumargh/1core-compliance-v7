@@ -153,10 +153,10 @@ export const STATE_REGS = {
     family:{familyCommunication:"Yes",writtenPolicies:"Yes",careLog:"Yes",familyMeetings:"No"},
     rules:{
       fireDrillFreq:"Monthly",
-      hotWaterMax:"110°F", // left as-is 16 Jul 2026 — no citation found in primary source; flagged, not resolved
+      hotWaterMax:"120°F", // corrected 16 Jul 2026 (was "110°F") — CDPHE 6 CCR 1010-7 §7.8.1(E)(1); min 85°F also applies at child-accessible sinks; source is CDPHE sanitation reg, not 8 CCR 1402-1
       fireSafetyTraining:"Yes",
       qrisType:"Voluntary", bgCheckType:"State (CBI) + FBI fingerprint",
-      tbTestReq:"Initial only", // left as-is 16 Jul 2026 — no TB citation found in primary source; flagged, not resolved
+      tbTestReq:"Not required", // corrected 16 Jul 2026 (was "Initial only") — no standing TB testing requirement in 8 CCR 1402-1 or 6 CCR 1010-7; CDPHE guidance limits testing to outbreak/exposure situations only
       cprRenewal:"2 years",
       immExemptions:"Medical + Religious + Philosophical",
       immExemptionStatute:"CRS §25-4-903",
@@ -211,8 +211,10 @@ export const STATE_REGS = {
     // prefix (12 CCR 2509-8 → 8 CCR 1402-1, was wrong throughout refs); infant ratio split removed (flat 1:5,
     // no 6mo tier in current rule text); tornadoDrill (2x/year → Monthly Mar–Oct); lockdownDrill (2x/year →
     // Quarterly); recordRetention (1yr → 3yr); staffPhysical (clarified 30-day/annual-renewal structure);
-    // agency name/phone (CDHS → CDEC, phone digit transposition fixed). hotWaterMax and tbTestReq
-    // deliberately left unresolved — no supporting citation found in primary source, flagged for follow-up.
+    // agency name/phone (CDHS → CDEC, phone digit transposition fixed). hotWaterMax corrected to 120°F
+    // (6 CCR 1010-7 §7.8.1(E)(1) — CDPHE sanitation reg, separate from 8 CCR 1402-1 licensing citation
+    // family). tbTestReq corrected to "Not required" — confirmed no standing TB requirement exists in
+    // either 8 CCR 1402-1 or 6 CCR 1010-7; CDPHE limits testing to outbreak/exposure response only.
     // Cross-validated against 2 real Colorado ROIs (Lakewood Learning Center #46568, Lionheart Children's
     // Academy at Revive #1769657) — all 12 unique rule citations across both reports matched primary
     // source verbatim.
@@ -251,6 +253,8 @@ export const STATE_REGS = {
       ageGroupSeparation:"8 CCR 1402-1 §2.233.B (infant) / §2.233.C.1 (toddler) — separated by 8ft walls + full doors",
       fireInspection:"8 CCR 1402-1 §2.122.A — required every 2 years from local fire dept + health dept",
       staffHealthStatement:"8 CCR 1402-1 §2.212.G — required within 6 months prior or 30 days after hire; annual self-reported renewal",
+      hotWaterMax:"6 CCR 1010-7 §7.8.1(E)(1) — min 85°F, max 120°F at child-accessible sinks (CDPHE sanitation reg)",
+      tbTestReq:"No standing requirement in 8 CCR 1402-1 or 6 CCR 1010-7; CDPHE outbreak/exposure guidance only (cdphe.colorado.gov/child-care-school-settings/tb)",
     } },
   CT: { name:"Connecticut", infant:4, toddler:4, preschool:10, schoolAge:10, indoorSqft:35, outdoorSqft:75, trainingHrs:15, inspPerYear:1,
     directorReq:"BA in ECE or related field + 2 years supervisory experience",
