@@ -1006,12 +1006,18 @@ export const STATE_REGS = {
       directorPresenceReq:"75% of operating hours or minimum 30 hrs/week, whichever is less (§746.1011)",
       liabilityInsuranceReduction:"HB 2789 §3 reduced required coverage from $300,000 to $100,000 per occurrence, eff. 9/1/2025",
       emergencyExits:"Minimum 2 exits to outside, in distant parts of each building (§746.5209)",
+      staffImmunizationPolicy:"Operation-determined — center must adopt a written policy specifying which vaccines it requires for employees based on the operator's own risk assessment of employee exposure to children (not a state-mandated vaccine list). Must include verification procedures, exemptions (CDC medical contraindications or reasons of conscience/religious belief), non-discrimination protections for exempt staff, compliance recordkeeping, and disciplinary consequences for non-compliance (§746.3611)",
+      smokeDetectorTesting:"Monthly — director or designee must test all smoke detectors, documenting date and employee name (§746.5319)",
+      coDetectorTesting:"Monthly testing + annual battery replacement (if battery-operated); both must be documented with date and employee name (§746.5537(a))",
+      fireExtinguisherInspection:"Monthly — director or designee must inspect, documenting date and employee name (§746.5307(a))",
+      foodAllergyEmergencyPlan:"Required for any child with a food allergy — must be signed by parent and health-care professional (§746.3819)",
       inspectionTypes:["Routine monitoring","Complaint investigation","Follow-up"],
       inspectionCiteFormat:"26 TAC §746.XXXX",
       inspectionDocTitle:"HHSC CCR Form 2936 Child-Care Facility Inspection Report",
       violationSeverity:["High","Medium-High","Medium","Medium-Low","Low"],
     },
-    // L3 VALIDATED 17 Jul 2026 — Standards source: HHS "Minimum Standards for Child-Care Centers," Revised December 2025 (chapter-746-centers.pdf, full 306pp text), cross-referenced against 89th Legislative Session bills PDF and 745 Subchapter F Background Check Rules PDF.
+    // L3 VALIDATED 17 Jul 2026 — Standards source: HHS "Minimum Standards for Child-Care Centers," Revised December 2025 (chapter-746-centers.pdf, full 306pp text), cross-referenced against 89th Legislative Session bills PDF, 745 Subchapter F Background Check Rules PDF, and real inspection reports (Lionheart Children's Academy 5-yr compliance history, KLA School of Flower Mound compliance history + monitoring inspection detail).
+    // FOLLOW-UP GAP CHECK: inspection-report cross-reference surfaced 4 additional fields not in the original pass — staffImmunizationPolicy (§746.3611, operation-determined policy model, distinct from CA-style state mandate), smokeDetectorTesting (§746.5319, monthly), coDetectorTesting (§746.5537(a), monthly+annual), fireExtinguisherInspection (§746.5307(a), monthly), foodAllergyEmergencyPlan (§746.3819). All confirmed against source text and matched to real inspection citations.
     // MAJOR CORRECTIONS: ratio table fully retiered (was flat preschool:15/toddler:9, missed 2yr tier and 4/5yr split) | trainingHrs 12→24 (caregiver), +30 director (new field, was missing entirely) | toiletRatio 1:15→1:17 (reverts an incorrect prior-session "correction") | hotWaterMax 110°F→120°F (was never a hard requirement at all — §746.3423) | tornadoDrill Monthly→4x/year | lockdownDrill 2x/year→4x/year (both drills actually share one section, §746.5205, with fire drill) | insurance now cites $100k post-HB2789 (was flat "Required" w/ implied $300k) | tbTestReq reframed as regionally variable per §746.627 (not "removed" — HB2789 repealed a separate statewide statute, HRC §42.043(a), leaving §746.627 untouched) | bgCheckType made precise (3-part check, was generic "State (DFPS)") | mandatedReporter now cites 24-hr window (SB 571) | added maxGroupSize, sinkRatio, directorPresenceReq, hotWaterNote, emergencyExits as new fields
     refs:{
       ratios:"26 TAC §746.1601, §746.1609",
@@ -1041,6 +1047,11 @@ export const STATE_REGS = {
       directorPresence:"26 TAC §746.1011(a)",
       maxGroupSize:"26 TAC §746.1609",
       emergencyExits:"26 TAC §746.5209",
+      staffImmunizationPolicy:"26 TAC §746.3611, §746.3609",
+      smokeDetectorTesting:"26 TAC §746.5319",
+      coDetectorTesting:"26 TAC §746.5537(a)",
+      fireExtinguisherInspection:"26 TAC §746.5307(a)",
+      foodAllergyEmergencyPlan:"26 TAC §746.3819",
     }
   },
 
